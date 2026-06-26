@@ -1,7 +1,12 @@
-import type { Request } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { getAuth, clerkClient } from '@clerk/express';
 import { prisma } from '../db';
 import { HttpError } from './error';
+
+type DbUser = Awaited<ReturnType<typeof ensureDbUser>>;
+
+/** Request augmented with the resolved local DB user. */
+export type AuthedRequest = Request & { dbUser?: DbUser };
 
 /** The authenticated Clerk user id, or 401. */
 export function getClerkId(req: Request): string {
@@ -38,4 +43,20 @@ export async function requireSuperAdmin(clerkId: string) {
     throw new HttpError(403, 'Forbidden');
   }
   return user;
+}
+
+/**
+ * Express middleware: require a signed-in super-admin and attach the resolved
+ * DB user as `req.dbUser`. Express 5 forwards rejections to the error handler,
+ * so no try/catch is needed.
+ */
+export async function requireSuperAdminMw(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const clerkId = getClerkId(req);
+  const user = await requireSuperAdmin(clerkId);
+  (req as AuthedRequest).dbUser = user;
+  next();
 }

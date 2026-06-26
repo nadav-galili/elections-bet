@@ -6,6 +6,7 @@ import { errorHandler, notFound } from './middleware/error';
 import healthRouter from './routes/health';
 import meRouter from './routes/me';
 import webhooksRouter from './routes/webhooks';
+import adminRouter from './routes/admin';
 
 export function createApp() {
   const app = express();
@@ -31,8 +32,11 @@ export function createApp() {
 
   app.use('/health', healthRouter);
 
-  // Clerk session middleware wraps only the authenticated API surface.
-  app.use('/api', clerkMiddleware(), meRouter);
+  // Clerk session middleware wraps the whole authenticated API surface once.
+  // (Webhooks are mounted above, before this, so they stay outside it.)
+  app.use('/api', clerkMiddleware());
+  app.use('/api', meRouter);
+  app.use('/api/admin', adminRouter);
 
   app.use(notFound);
   app.use(errorHandler);
