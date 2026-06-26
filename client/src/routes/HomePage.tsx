@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut, SignInButton, useUser } from '@clerk/clerk-react';
+import { Show, SignInButton, useUser } from '@clerk/react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { api, useApi } from '@/lib/api';
@@ -60,18 +60,18 @@ export default function HomePage() {
         <HealthBadge />
       </div>
 
-      <SignedOut>
+      <Show when="signed-out">
         <SignInButton mode="modal">
           <Button size="lg">התחברות כדי להתחיל</Button>
         </SignInButton>
-      </SignedOut>
+      </Show>
 
-      <SignedIn>
+      <Show when="signed-in">
         <div className="space-y-2">
           <p className="text-lg font-medium">שלום, {user?.firstName ?? 'אורח'} 👋</p>
           <MyAccount />
         </div>
-      </SignedIn>
+      </Show>
     </div>
   );
 }

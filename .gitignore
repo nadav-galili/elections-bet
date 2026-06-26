@@ -25,3 +25,11 @@ test-results/
 
 # prisma
 server/prisma/*.db
+
+# npm lockfiles never belong here (Bun only)
+package-lock.json
+
+# clerk CLI agent-skill artifacts
+client/.agents/
+client/.claude/
+client/skills-lock.json

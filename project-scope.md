@@ -1,5 +1,7 @@
 ## AI-Powered Israeli Elections Bet System
 
+> Full spec: **`implementation-plan.md`** · Tech stack: **`tech-stack.md`**
+
 ## Problem
 
 The israeil elections are coming Up and there is no system That enables groups of friends to make friendly wagers or bets on the outcome of this election.

@@ -36,6 +36,8 @@ Before reveal, a group shows **who submitted** (✓) but never the numbers. Priv
 
 ## 3. Stack
 
+> Full stack with pinned versions lives in **`tech-stack.md`**. The table below is the design-time decision record.
+
 | Layer               | Choice                                                                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Platform            | Web only, responsive, **Hebrew / RTL**. No native mobile.                                                                                                                      |

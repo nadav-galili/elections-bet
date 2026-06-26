@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
+import { Show, SignInButton, UserButton } from '@clerk/react';
 import { Outlet } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
@@ -9,14 +9,14 @@ export default function App() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <span className="text-lg font-extrabold">תחזית בחירות</span>
           <div className="flex items-center gap-3">
-            <SignedOut>
+            <Show when="signed-out">
               <SignInButton mode="modal">
                 <Button size="sm">התחברות</Button>
               </SignInButton>
-            </SignedOut>
-            <SignedIn>
+            </Show>
+            <Show when="signed-in">
               <UserButton />
-            </SignedIn>
+            </Show>
           </div>
         </div>
       </header>

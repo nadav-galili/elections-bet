@@ -10,7 +10,18 @@ import webhooksRouter from './routes/webhooks';
 export function createApp() {
   const app = express();
 
-  app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
+  app.use(
+    cors({
+      // Allow the configured client, same-origin/non-browser requests (no Origin),
+      // and any localhost port in dev (Vite may fall back 5173 → 5174 → …).
+      origin: (origin, cb) => {
+        const ok =
+          !origin || origin === env.CLIENT_ORIGIN || /^https?:\/\/localhost:\d+$/.test(origin);
+        cb(null, ok);
+      },
+      credentials: true,
+    }),
+  );
 
   // Webhooks need the raw body, so mount them before the JSON body parser
   // (and they verify their own signature, so no Clerk session middleware).
