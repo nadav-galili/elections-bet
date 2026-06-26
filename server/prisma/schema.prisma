@@ -1,0 +1,149 @@
+// Elections Bet — data model. See implementation-plan.md §5.
+// Prisma 7 with the classic prisma-client-js generator.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  SUPER_ADMIN
+}
+
+enum Bloc {
+  A
+  B
+  UNALIGNED
+}
+
+enum ResultsStatus {
+  NONE
+  PROVISIONAL
+  FINAL
+}
+
+model User {
+  id          String   @id @default(cuid())
+  clerkId     String   @unique
+  email       String?
+  displayName String?
+  avatarUrl   String?
+  role        Role     @default(USER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  picks       Pick[]
+  scores      Score[]
+  memberships GroupMembership[]
+  adminGroups Group[]           @relation("GroupAdmin")
+}
+
+model Election {
+  id                 String        @id @default(cuid())
+  nameHe             String
+  lockAt             DateTime?
+  revealAt           DateTime?
+  resultsStatus      ResultsStatus @default(NONE)
+  resultsPublishedAt DateTime?
+  blocALabel         String?
+  blocBLabel         String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  parties Party[]
+  picks   Pick[]
+  scores  Score[]
+}
+
+model Party {
+  id             String  @id @default(cuid())
+  electionId     String
+  nameHe         String
+  logoUrl        String?
+  bloc           Bloc    @default(UNALIGNED)
+  displayOrder   Int     @default(0)
+  actualMandates Int?
+
+  election    Election    @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  pickEntries PickEntry[]
+
+  @@index([electionId])
+}
+
+model Pick {
+  id          String    @id @default(cuid())
+  userId      String
+  electionId  String
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  election Election    @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  entries  PickEntry[]
+
+  @@unique([userId, electionId])
+  @@index([electionId])
+}
+
+model PickEntry {
+  id       String @id @default(cuid())
+  pickId   String
+  partyId  String
+  mandates Int
+
+  pick  Pick  @relation(fields: [pickId], references: [id], onDelete: Cascade)
+  party Party @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@unique([pickId, partyId])
+  @@index([partyId])
+}
+
+model Score {
+  id             String   @id @default(cuid())
+  userId         String
+  electionId     String
+  base           Int      @default(0)
+  bonusLargest   Int      @default(0)
+  bonusThreshold Int      @default(0)
+  bonusBloc      Int      @default(0)
+  total          Int      @default(0)
+  computedAt     DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, electionId])
+  @@index([electionId, total])
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  nameHe      String
+  adminUserId String
+  inviteToken String   @unique @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  admin       User              @relation("GroupAdmin", fields: [adminUserId], references: [id])
+  memberships GroupMembership[]
+
+  @@index([adminUserId])
+}
+
+model GroupMembership {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  joinedAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}

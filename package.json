@@ -1,0 +1,38 @@
+{
+  "name": "elections-bet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n client,server -c blue,green \"bun run --filter client dev\" \"bun run --filter server dev\"",
+    "build": "bun run --filter client build && bun run --filter server build",
+    "test": "bun run --filter '*' test",
+    "typecheck": "bun run --filter client typecheck && bun run --filter server typecheck",
+    "lint": "bun run --filter '*' lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.0",
+    "prettier": "^3.4.2"
+  },
+  "lint-staged": {
+    "*": "prettier --ignore-unknown --write"
+  },
+  "trustedDependencies": [
+    "@clerk/shared",
+    "@prisma/engines",
+    "esbuild",
+    "prisma"
+  ]
+}

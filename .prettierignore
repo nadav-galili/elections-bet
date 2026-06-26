@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+coverage
+.lavish
+bun.lock
+**/generated
+playwright-report
+test-results
+server/prisma/migrations

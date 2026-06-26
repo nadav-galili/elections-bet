@@ -1,0 +1,27 @@
+node_modules/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+
+# env
+.env
+.env.*
+!.env.example
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# tests
+playwright-report/
+test-results/
+
+# lavish review artifacts (durable spec is implementation-plan.md)
+.lavish/
+
+# prisma
+server/prisma/*.db
