@@ -5,6 +5,7 @@ import RequireSuperAdmin from '@/components/admin/RequireSuperAdmin';
 import AdminElectionsPage from '@/routes/admin/AdminElectionsPage';
 import ElectionFormPage from '@/routes/admin/ElectionFormPage';
 import ElectionDetailPage from '@/routes/admin/ElectionDetailPage';
+import PickPage from '@/routes/pick/PickPage';
 
 export const routes: RouteObject[] = [
   {
@@ -12,6 +13,7 @@ export const routes: RouteObject[] = [
     element: <App />,
     children: [
       { index: true, element: <HomePage /> },
+      { path: 'elections/:id/pick', element: <PickPage /> },
       {
         path: 'admin',
         element: <RequireSuperAdmin />,

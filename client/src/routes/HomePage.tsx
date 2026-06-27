@@ -1,7 +1,9 @@
 import { Show, SignInButton, useUser } from '@clerk/react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { api, useApi } from '@/lib/api';
+import type { PlayerElection } from '@/lib/pick/types';
 import { Button } from '@/components/ui/button';
 
 function HealthBadge() {
@@ -47,6 +49,26 @@ function MyAccount() {
   );
 }
 
+function ActiveElectionCta() {
+  const apiClient = useApi();
+  const { data } = useQuery({
+    queryKey: ['elections'],
+    queryFn: async () => (await apiClient.get('/api/elections')).data as PlayerElection[],
+  });
+
+  if (!data || data.length === 0) return null;
+
+  const now = Date.now();
+  const active =
+    data.find((e) => e.lockAt === null || new Date(e.lockAt).getTime() > now) ?? data[0];
+
+  return (
+    <Button asChild size="lg">
+      <Link to={`/elections/${active.id}/pick`}>הגשת תחזית</Link>
+    </Button>
+  );
+}
+
 export default function HomePage() {
   const { user } = useUser();
 
@@ -67,8 +89,9 @@ export default function HomePage() {
       </Show>
 
       <Show when="signed-in">
-        <div className="space-y-2">
+        <div className="space-y-4">
           <p className="text-lg font-medium">שלום, {user?.firstName ?? 'אורח'} 👋</p>
+          <ActiveElectionCta />
           <MyAccount />
         </div>
       </Show>

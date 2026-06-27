@@ -5,6 +5,7 @@ import { env } from './env';
 import { errorHandler, notFound } from './middleware/error';
 import healthRouter from './routes/health';
 import meRouter from './routes/me';
+import picksRouter from './routes/picks';
 import webhooksRouter from './routes/webhooks';
 import adminRouter from './routes/admin';
 
@@ -36,6 +37,7 @@ export function createApp() {
   // (Webhooks are mounted above, before this, so they stay outside it.)
   app.use('/api', clerkMiddleware());
   app.use('/api', meRouter);
+  app.use('/api', picksRouter);
   app.use('/api/admin', adminRouter);
 
   app.use(notFound);
