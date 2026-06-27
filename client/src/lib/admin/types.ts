@@ -8,6 +8,7 @@ export interface Election {
   lockAt: string | null;
   revealAt: string | null;
   resultsStatus: ResultsStatus;
+  resultsPublishedAt?: string | null;
   blocALabel: string | null;
   blocBLabel: string | null;
   createdAt: string;
@@ -41,4 +42,10 @@ export interface PartyInput {
   logoUrl: string | null;
   bloc: Bloc;
   displayOrder: number;
+}
+
+/** A single party's actual result, sent when setting election results. */
+export interface ResultEntry {
+  partyId: string;
+  actualMandates: number;
 }
