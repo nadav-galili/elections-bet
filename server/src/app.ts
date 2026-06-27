@@ -7,6 +7,7 @@ import healthRouter from './routes/health';
 import meRouter from './routes/me';
 import webhooksRouter from './routes/webhooks';
 import adminRouter from './routes/admin';
+import groupsRouter from './routes/groups';
 
 export function createApp() {
   const app = express();
@@ -36,6 +37,7 @@ export function createApp() {
   // (Webhooks are mounted above, before this, so they stay outside it.)
   app.use('/api', clerkMiddleware());
   app.use('/api', meRouter);
+  app.use('/api/groups', groupsRouter);
   app.use('/api/admin', adminRouter);
 
   app.use(notFound);

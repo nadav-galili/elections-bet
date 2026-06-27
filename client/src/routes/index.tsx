@@ -5,6 +5,7 @@ import RequireSuperAdmin from '@/components/admin/RequireSuperAdmin';
 import AdminElectionsPage from '@/routes/admin/AdminElectionsPage';
 import ElectionFormPage from '@/routes/admin/ElectionFormPage';
 import ElectionDetailPage from '@/routes/admin/ElectionDetailPage';
+import { routes as groupsRoutes } from '@/routes/groups';
 
 export const routes: RouteObject[] = [
   {
@@ -21,6 +22,7 @@ export const routes: RouteObject[] = [
           { path: 'elections/:id', element: <ElectionDetailPage /> },
         ],
       },
+      ...groupsRoutes,
     ],
   },
 ];
