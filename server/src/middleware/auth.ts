@@ -60,3 +60,19 @@ export async function requireSuperAdminMw(
   (req as AuthedRequest).dbUser = user;
   next();
 }
+
+/**
+ * Express middleware: require a signed-in user and attach the resolved
+ * DB user as `req.dbUser`. Express 5 forwards rejections to the error handler,
+ * so no try/catch is needed.
+ */
+export async function requireAuthMw(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const clerkId = getClerkId(req);
+  const user = await ensureDbUser(clerkId);
+  (req as AuthedRequest).dbUser = user;
+  next();
+}
