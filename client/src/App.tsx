@@ -37,6 +37,12 @@ export default function App() {
               </SignInButton>
             </Show>
             <Show when="signed-in">
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/groups">הקבוצות שלי</Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/leaderboard">טבלת דירוג</Link>
+              </Button>
               <AdminNavLink />
               <UserButton />
             </Show>

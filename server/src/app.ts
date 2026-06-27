@@ -9,6 +9,7 @@ import picksRouter from './routes/picks';
 import webhooksRouter from './routes/webhooks';
 import adminRouter from './routes/admin';
 import groupsRouter from './routes/groups';
+import leaderboardRouter from './routes/leaderboard';
 
 export function createApp() {
   const app = express();
@@ -40,6 +41,11 @@ export function createApp() {
   app.use('/api', meRouter);
   app.use('/api', picksRouter);
   app.use('/api/groups', groupsRouter);
+  // The leaderboard paths don't collide with the routers above: Express matches
+  // on the full path, and no route in groupsRouter (`/groups/:id`) or picksRouter
+  // (`/elections/:id`) matches the extra `/leaderboard` segment. Mount order here
+  // is therefore not load-bearing — it's kept tidy alongside the other /api routers.
+  app.use('/api', leaderboardRouter);
   app.use('/api/admin', adminRouter);
 
   app.use(notFound);

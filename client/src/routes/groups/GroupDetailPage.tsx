@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Copy, Loader2, Trash2, Users } from 'lucide-react';
+import { AlertCircle, Check, Copy, Loader2, Trash2, Trophy, Users } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import { GroupLeaderboardSection } from '@/routes/leaderboard/GroupLeaderboardSection';
 
 function inviteLink(token: string) {
   return `${window.location.origin}/join/${token}`;
@@ -191,6 +192,7 @@ export default function GroupDetailPage() {
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'members' | 'leaderboard'>('members');
 
   const handleCopy = async (token: string) => {
     const url = inviteLink(token);
@@ -294,34 +296,71 @@ export default function GroupDetailPage() {
         </div>
       )}
 
-      {data.privacyPhase === 'no_active' && (
-        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          אין בחירות פעילות כרגע.
-        </div>
-      )}
-
-      {data.privacyPhase === 'pre_reveal' && (
-        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          התחזיות מוסתרות עד מועד החשיפה — מוצג רק מי הגיש.
-        </div>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>חברים</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <MemberList data={data} isAdmin={isAdmin} onRemoveMember={setConfirmRemove} />
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Users className="size-3" />
-        <span>
-          {data._count?.memberships ?? data.memberships.length} חברים • נוצר{' '}
-          {new Date(data.createdAt).toLocaleDateString('he-IL')}
-        </span>
+      <div className="flex items-center gap-2 border-b">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={tab === 'members'}
+          onClick={() => setTab('members')}
+          className={
+            tab === 'members'
+              ? '-mb-px gap-2 rounded-none border-b-2 border-primary'
+              : '-mb-px gap-2 rounded-none border-b-2 border-transparent text-muted-foreground'
+          }
+        >
+          <Users className="size-4" />
+          חברים
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={tab === 'leaderboard'}
+          onClick={() => setTab('leaderboard')}
+          className={
+            tab === 'leaderboard'
+              ? '-mb-px gap-2 rounded-none border-b-2 border-primary'
+              : '-mb-px gap-2 rounded-none border-b-2 border-transparent text-muted-foreground'
+          }
+        >
+          <Trophy className="size-4" />
+          טבלת דירוג
+        </Button>
       </div>
+
+      {tab === 'members' && (
+        <>
+          {data.privacyPhase === 'no_active' && (
+            <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+              אין בחירות פעילות כרגע.
+            </div>
+          )}
+
+          {data.privacyPhase === 'pre_reveal' && (
+            <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+              התחזיות מוסתרות עד מועד החשיפה — מוצג רק מי הגיש.
+            </div>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>חברים</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MemberList data={data} isAdmin={isAdmin} onRemoveMember={setConfirmRemove} />
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="size-3" />
+            <span>
+              {data._count?.memberships ?? data.memberships.length} חברים • נוצר{' '}
+              {new Date(data.createdAt).toLocaleDateString('he-IL')}
+            </span>
+          </div>
+        </>
+      )}
+
+      {tab === 'leaderboard' && <GroupLeaderboardSection groupId={id} />}
 
       <ConfirmDialog
         open={confirmLeave}
