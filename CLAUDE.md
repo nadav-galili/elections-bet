@@ -12,28 +12,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Bun is the package manager** (lockfile `bun.lock`) — never use `npm`/`yarn`/`pnpm`. The Node runtime still runs the server (via `tsx`); Bun is install + script runner. Run everything from the repo root unless noted.
 
-```bash
-bun install                              # install both workspaces
-bun run dev                              # client :5173 + server :4000 together (concurrently)
-bun run build                            # build both
-bun run typecheck                        # tsc both workspaces
-bun run lint                             # oxlint both
-bun run test                             # Vitest (unit/component) both
-bun run format                           # Prettier across the repo
-
 # one workspace
+
 bun run --filter client test
 bun run --filter server test
+
 # one test file / name pattern (args after `--` go to vitest)
+
 bun run --filter server test -- src/app.test.ts
 bun run --filter client test -- button
 bun run --filter client test:watch
 
 # database (server workspace)
-docker compose -f server/docker-compose.yml up -d   # local Postgres
-bun run --filter server db:migrate                  # create + apply a migration (dev)
-bun run --filter server db:generate                 # regenerate Prisma client after schema edits
+
+docker compose -f server/docker-compose.yml up -d # local Postgres
+bun run --filter server db:migrate # create + apply a migration (dev)
+bun run --filter server db:generate # regenerate Prisma client after schema edits
 bun run --filter server db:studio
+
 ```
 
 E2E (`client/e2e/*.spec.ts`, Playwright) is run via the `compound-engineering:playwright-test` skill, not a root script. We favor unit/component tests over E2E.
@@ -64,3 +60,12 @@ These come from `implementation-plan.md` and are easy to get wrong:
 - **One pick per `(user, election)`**, mirrored read-only into every group; there are no per-group picks.
 - Score = `240 − Σ|predicted − actual|` + three bonuses (largest party, threshold accuracy, 3-way bloc outcome). Keep it a single pluggable function.
 - Timeline: lock (default 20:00) freezes picks → **picks reveal on a timer** (default 20:02) with no scores → **scores reveal only when the admin publishes results**. "Picks hidden until reveal" is enforced in the API layer (no DB RLS).
+
+
+## Design System Rules
+Icons: Lucide only, no emoji icons
+Typography: ≥ 15px labels, ≥ 18px body
+Responsive: all layouts mobile-first
+Don't: bright gradients, gradient text, heavy shadows, busy patterns, dark mode, border-radius > rounded-2xl, cramped spacing
+
+```
