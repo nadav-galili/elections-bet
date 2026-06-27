@@ -134,13 +134,22 @@ describe('admin groups — GET /:id (roster for god-mode dialogs)', () => {
 });
 
 describe('admin groups — PATCH /:id', () => {
-  it('renames a group (200)', async () => {
+  it('renames a group (200) and never leaks the inviteToken', async () => {
     asAdmin();
     mocked.group.findUnique.mockResolvedValue({ id: 'g1', nameHe: 'ישן' });
-    mocked.group.update.mockResolvedValue({ id: 'g1', nameHe: 'חדש' });
+    mocked.group.update.mockResolvedValue({
+      id: 'g1',
+      nameHe: 'חדש',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      inviteToken: 'secret-token',
+      admin: { id: 'admin1', displayName: 'נדב', email: 'a@b.co' },
+      _count: { memberships: 2 },
+    });
     const res = await request(createApp()).patch('/api/admin/groups/g1').send({ nameHe: 'חדש' });
     expect(res.status).toBe(200);
-    expect(res.body.nameHe).toBe('חדש');
+    expect(res.body).toMatchObject({ nameHe: 'חדש', memberCount: 2 });
+    // The secret invite token must NOT be projected into the admin response.
+    expect(res.body.inviteToken).toBeUndefined();
   });
 
   it('reassigns admin to a current member (200)', async () => {
@@ -149,7 +158,13 @@ describe('admin groups — PATCH /:id', () => {
     const newAdminId = 'clabcdefg0000xyz12345678a';
     mocked.group.findUnique.mockResolvedValue({ id: 'g1', nameHe: 'g' });
     mocked.groupMembership.findUnique.mockResolvedValue({ id: 'm2', userId: newAdminId });
-    mocked.group.update.mockResolvedValue({ id: 'g1', adminUserId: newAdminId });
+    mocked.group.update.mockResolvedValue({
+      id: 'g1',
+      nameHe: 'g',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      admin: { id: newAdminId, displayName: 'חבר', email: null },
+      _count: { memberships: 2 },
+    });
     const res = await request(createApp())
       .patch('/api/admin/groups/g1')
       .send({ adminUserId: newAdminId });

@@ -201,6 +201,8 @@ export function useRemoveGroupMemberAdmin() {
     onSuccess: ({ groupId }) => {
       void queryClient.invalidateQueries({ queryKey: adminKeys.allGroups });
       void queryClient.invalidateQueries({ queryKey: adminKeys.group(groupId) });
+      // Removing the last member deletes the group, which changes overview counts.
+      void queryClient.invalidateQueries({ queryKey: adminKeys.overview });
     },
   });
 }

@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,6 +19,7 @@ export function ConfirmDialog({
   cancelLabel = 'ביטול',
   onConfirm,
   pending = false,
+  error,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,6 +29,8 @@ export function ConfirmDialog({
   cancelLabel?: string;
   onConfirm: () => void;
   pending?: boolean;
+  /** Surfaced when the confirmed action fails, so the dialog never fails silently. */
+  error?: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -36,6 +39,12 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+        {error && (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            {error}
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             {cancelLabel}

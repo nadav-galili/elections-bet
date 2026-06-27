@@ -79,8 +79,23 @@ router.patch('/:id', validate(updateAdminGroupSchema), async (req, res) => {
     updateData.admin = { connect: { id: adminUserId } };
   }
 
-  const updated = await prisma.group.update({ where: { id }, data: updateData });
-  res.json(updated);
+  // Return the same projected shape as GET / (never the raw Group — that would
+  // leak the secret inviteToken and not match the client's AdminGroup type).
+  const updated = await prisma.group.update({
+    where: { id },
+    data: updateData,
+    include: {
+      admin: { select: { id: true, displayName: true, email: true } },
+      _count: { select: { memberships: true } },
+    },
+  });
+  res.json({
+    id: updated.id,
+    nameHe: updated.nameHe,
+    createdAt: updated.createdAt,
+    admin: updated.admin,
+    memberCount: updated._count.memberships,
+  });
 });
 
 // DELETE /api/admin/groups/:id — delete a group (cascades to memberships).
@@ -93,8 +108,11 @@ router.delete('/:id', async (req, res) => {
 });
 
 // DELETE /api/admin/groups/:id/members/:userId — remove a member from a group.
-// Mirrors the group-leave logic: if the removed user was the admin, promote the
-// earliest-joined remaining member; if no members remain, delete the group.
+// Reuses the succession logic from the player `DELETE /:id/leave` handler (NOT
+// the player `DELETE /:id/members/:userId`, which is a plain delete that refuses
+// to remove the admin): god-mode can remove anyone, including the admin, so if
+// the removed user was the admin it promotes the earliest-joined remaining
+// member, or deletes the group when no members remain.
 router.delete('/:id/members/:userId', async (req, res) => {
   const groupId = String(req.params.id);
   const targetUserId = String(req.params.userId);

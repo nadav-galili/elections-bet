@@ -8,6 +8,7 @@ import {
   useUsers,
 } from '@/lib/admin/hooks';
 import type { AdminUser, Role } from '@/lib/admin/types';
+import { apiErrorMessage } from '@/lib/admin/format';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -61,6 +62,12 @@ function RenameDialog({ user, onClose }: { user: AdminUser; onClose: () => void 
             autoFocus
           />
         </div>
+        {updateUser.isError && (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            {apiErrorMessage(updateUser.error)}
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={updateUser.isPending}>
             ביטול
@@ -178,6 +185,7 @@ function UserRow({ user }: { user: AdminUser }) {
         description={`למחוק את "${user.displayName ?? user.email ?? user.id}"? לא ניתן לשחזר.`}
         confirmLabel="מחיקה"
         pending={deleteUser.isPending}
+        error={deleteUser.isError ? apiErrorMessage(deleteUser.error) : undefined}
         onConfirm={() => deleteUser.mutate(user.id, { onSuccess: () => setConfirmDelete(false) })}
       />
 
@@ -188,6 +196,7 @@ function UserRow({ user }: { user: AdminUser }) {
         description={`להפוך את "${user.displayName ?? user.email ?? user.id}" למנהל-על? למנהל-על יש שליטה מלאה במערכת.`}
         confirmLabel="הענקת הרשאה"
         pending={updateUser.isPending}
+        error={updateUser.isError ? apiErrorMessage(updateUser.error) : undefined}
         onConfirm={() =>
           updateUser.mutate(
             { id: user.id, input: { role: 'SUPER_ADMIN' } },

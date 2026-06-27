@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import type { AdminUser } from '@/lib/admin/types';
 
@@ -34,6 +34,13 @@ const yossi: AdminUser = {
   bannedAt: '2026-06-10T00:00:00.000Z',
   createdAt: '2026-06-02T00:00:00.000Z',
 };
+
+beforeAll(() => {
+  // Radix Select relies on these, which jsdom doesn't implement.
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  window.HTMLElement.prototype.hasPointerCapture = vi.fn();
+  window.HTMLElement.prototype.releasePointerCapture = vi.fn();
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -88,5 +95,40 @@ describe('AdminUsersPage', () => {
     // Only confirming fires the DELETE.
     await userEvent.click(screen.getByRole('button', { name: 'מחיקה' }));
     await waitFor(() => expect(del).toHaveBeenCalledWith('/api/admin/users/u1'));
+  });
+
+  it('bans an active user and unbans a banned one', async () => {
+    get.mockResolvedValue({ data: [dana, yossi] });
+    post.mockResolvedValue({ data: {} });
+    del.mockResolvedValue({ data: {} });
+
+    renderWithProviders(<AdminUsersPage />, { initialEntries: ['/admin/users'] });
+    await screen.findByText('דנה');
+
+    await userEvent.click(screen.getByLabelText('השעיית דנה'));
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/api/admin/users/u1/ban'));
+
+    await userEvent.click(screen.getByLabelText('ביטול השעיה יוסי'));
+    await waitFor(() => expect(del).toHaveBeenCalledWith('/api/admin/users/u2/ban'));
+  });
+
+  it('requires confirmation before promoting a user to SUPER_ADMIN', async () => {
+    get.mockResolvedValue({ data: [dana] });
+    patch.mockResolvedValue({ data: { ...dana, role: 'SUPER_ADMIN' } });
+
+    renderWithProviders(<AdminUsersPage />, { initialEntries: ['/admin/users'] });
+    await screen.findByText('דנה');
+
+    // Select SUPER_ADMIN → confirm dialog opens, but no PATCH yet.
+    await userEvent.click(screen.getByLabelText('תפקיד דנה'));
+    await userEvent.click(await screen.findByRole('option', { name: 'מנהל-על' }));
+    expect(await screen.findByText('הענקת הרשאת מנהל-על')).toBeInTheDocument();
+    expect(patch).not.toHaveBeenCalled();
+
+    // Confirming sends the promotion.
+    await userEvent.click(screen.getByRole('button', { name: 'הענקת הרשאה' }));
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith('/api/admin/users/u1', { role: 'SUPER_ADMIN' }),
+    );
   });
 });

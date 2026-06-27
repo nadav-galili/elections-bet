@@ -1,5 +1,14 @@
 import type { Bloc, Election, ResultsStatus } from '@/lib/admin/types';
 
+/** Pull the server's Hebrew error message off an axios error, else a fallback. */
+export function apiErrorMessage(err: unknown, fallback = 'הפעולה נכשלה. נסו שוב.'): string {
+  if (err && typeof err === 'object' && 'response' in err) {
+    const data = (err as { response?: { data?: { error?: unknown } } }).response?.data;
+    if (data && typeof data.error === 'string') return data.error;
+  }
+  return fallback;
+}
+
 /** Format an ISO timestamp for display in the admin tables (Hebrew locale). */
 export function formatDateTime(iso: string | null): string {
   if (!iso) return '—';

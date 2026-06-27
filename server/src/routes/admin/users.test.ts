@@ -150,6 +150,26 @@ describe('admin users — PATCH /:id', () => {
       .send({ displayName: 'שם' });
     expect(res.status).toBe(200);
   });
+
+  it('400 when demoting ANOTHER super-admin (mutual protection)', async () => {
+    asAdminWithTarget({ id: 'u2', role: 'SUPER_ADMIN' });
+    const res = await request(createApp()).patch('/api/admin/users/u2').send({ role: 'USER' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('לא ניתן לשנות תפקיד של מנהל-על');
+    expect(mocked.user.update).not.toHaveBeenCalled();
+  });
+
+  it('allows promoting a USER to SUPER_ADMIN', async () => {
+    asAdminWithTarget({ id: 'u2', role: 'USER' });
+    mocked.user.update.mockResolvedValue({ id: 'u2', role: 'SUPER_ADMIN' });
+    const res = await request(createApp())
+      .patch('/api/admin/users/u2')
+      .send({ role: 'SUPER_ADMIN' });
+    expect(res.status).toBe(200);
+    expect(mocked.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ role: 'SUPER_ADMIN' }) }),
+    );
+  });
 });
 
 describe('admin users — ban / unban', () => {

@@ -7,7 +7,7 @@ import {
   useRemoveGroupMemberAdmin,
   useUpdateGroupAdmin,
 } from '@/lib/admin/hooks';
-import { formatDateTime } from '@/lib/admin/format';
+import { apiErrorMessage, formatDateTime } from '@/lib/admin/format';
 import type { AdminGroup } from '@/lib/admin/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,6 +43,10 @@ function MembersDialog({
   const removeMember = useRemoveGroupMemberAdmin();
 
   const pending = updateGroup.isPending || removeMember.isPending;
+  const mutationError =
+    updateGroup.isError || removeMember.isError
+      ? apiErrorMessage(updateGroup.error ?? removeMember.error)
+      : null;
 
   const act = (userId: string) => {
     if (mode === 'reassign') {
@@ -72,6 +76,13 @@ function MembersDialog({
           <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="size-4" />
             שגיאה בטעינת חברי הקבוצה.
+          </div>
+        )}
+
+        {mutationError && (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            {mutationError}
           </div>
         )}
 
@@ -220,6 +231,7 @@ export default function AdminGroupsPage() {
         }
         confirmLabel="מחיקה"
         pending={deleteGroup.isPending}
+        error={deleteGroup.isError ? apiErrorMessage(deleteGroup.error) : undefined}
         onConfirm={() => {
           if (!confirmDelete) return;
           deleteGroup.mutate(confirmDelete.id, {

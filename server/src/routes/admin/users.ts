@@ -54,6 +54,12 @@ router.patch('/:id', validate(updateAdminUserSchema), async (req, res) => {
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) throw new HttpError(404, 'המשתמש לא נמצא');
 
+  // Super-admins are mutually protected: you can promote a USER, but you can't
+  // demote another super-admin (consistent with the ban/delete guards below).
+  if (role !== undefined && existing.role === 'SUPER_ADMIN' && id !== dbUser.id) {
+    throw new HttpError(400, 'לא ניתן לשנות תפקיד של מנהל-על');
+  }
+
   const updated = await prisma.user.update({
     where: { id },
     data: { displayName, role },
