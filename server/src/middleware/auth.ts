@@ -73,6 +73,10 @@ export async function requireAuthMw(
 ): Promise<void> {
   const clerkId = getClerkId(req);
   const user = await ensureDbUser(clerkId);
+  // A super-admin ban (reversible flag) locks the user out of every player route.
+  if (user.bannedAt) {
+    throw new HttpError(403, 'חשבונך הושעה');
+  }
   (req as AuthedRequest).dbUser = user;
   next();
 }
