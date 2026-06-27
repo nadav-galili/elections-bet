@@ -1,18 +1,19 @@
-import { z } from 'zod'
+import { z } from 'zod';
 
 export const createGroupSchema = z.object({
-  nameHe: z.string().trim().min(1),
-})
+  nameHe: z.string().trim().min(1, 'שם הקבוצה הוא שדה חובה'),
+});
 
-export const updateGroupSchema = z.object({
-  nameHe: z.string().trim().min(1).optional(),
-  adminUserId: z.string().cuid().optional(),
-})
+// Both fields are optional, but at least one must be present so a PATCH is a
+// real change (rename and/or admin transfer) and never a silent no-op.
+export const updateGroupSchema = z
+  .object({
+    nameHe: z.string().trim().min(1, 'שם הקבוצה הוא שדה חובה').optional(),
+    adminUserId: z.string().cuid('מזהה משתמש לא תקין').optional(),
+  })
+  .refine((d) => d.nameHe !== undefined || d.adminUserId !== undefined, {
+    message: 'לא בוצע שינוי',
+  });
 
-export const joinGroupSchema = z.object({
-  inviteToken: z.string().min(1),
-})
-
-export type CreateGroupInput = z.infer<typeof createGroupSchema>
-export type UpdateGroupInput = z.infer<typeof updateGroupSchema>
-export type JoinGroupInput = z.infer<typeof joinGroupSchema>
+export type CreateGroupInput = z.infer<typeof createGroupSchema>;
+export type UpdateGroupInput = z.infer<typeof updateGroupSchema>;

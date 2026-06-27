@@ -1,10 +1,10 @@
-import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertCircle, ArrowRight, Loader2 } from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router-dom'
-import { z } from 'zod'
-import { useCreateGroup } from '@/lib/groups/hooks'
-import { Button } from '@/components/ui/button'
+import { zodResolver } from '@hookform/resolvers/zod';
+import { AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { Link, useNavigate } from 'react-router-dom';
+import { z } from 'zod';
+import { useCreateGroup } from '@/lib/groups/hooks';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -12,36 +12,36 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 
 const schema = z.object({
   nameHe: z.string().trim().min(1, 'יש להזין שם לקבוצה'),
-})
+});
 
-type FormValues = z.input<typeof schema>
+type FormValues = z.input<typeof schema>;
 
 export default function GroupFormPage() {
-  const navigate = useNavigate()
-  const createGroup = useCreateGroup()
+  const navigate = useNavigate();
+  const createGroup = useCreateGroup();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       nameHe: '',
     },
-  })
+  });
 
   const onSubmit = form.handleSubmit((values) => {
     createGroup.mutate(
       { nameHe: values.nameHe.trim() },
       {
         onSuccess: (created) => {
-          navigate(`/groups/${created.id}`)
+          navigate(`/groups/${created.id}`);
         },
       },
-    )
-  })
+    );
+  });
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -87,5 +87,5 @@ export default function GroupFormPage() {
         </form>
       </Form>
     </div>
-  )
+  );
 }

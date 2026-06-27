@@ -1,7 +1,8 @@
-import { AlertCircle, Copy, Loader2, Plus, Users } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { useGroups } from '@/lib/groups/hooks'
-import { Button } from '@/components/ui/button'
+import { AlertCircle, Check, Copy, Loader2, Plus, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useGroups } from '@/lib/groups/hooks';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -9,27 +10,30 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/components/ui/use-toast'
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
-function copyInviteLink(token: string) {
-  const url = `${window.location.origin}/join/${token}`
-  navigator.clipboard.writeText(url)
-  return url
+function inviteLink(token: string) {
+  return `${window.location.origin}/join/${token}`;
 }
 
 export default function GroupsListPage() {
-  const { data, isLoading, isError } = useGroups()
-  const { toast } = useToast()
+  const { data, isLoading, isError } = useGroups();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
-  const handleCopy = (token: string) => {
-    const url = copyInviteLink(token)
-    toast({
-      title: 'הקישור הועתק',
-      description: 'הזמינו חברים באמצעות הקישור',
-    })
-  }
+  const handleCopy = async (group: { id: string; inviteToken: string }) => {
+    const url = inviteLink(group.inviteToken);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyError(null);
+      setCopiedId(group.id);
+      setTimeout(() => setCopiedId((current) => (current === group.id ? null : current)), 2000);
+    } catch {
+      setCopiedId(null);
+      setCopyError(url);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -53,6 +57,13 @@ export default function GroupsListPage() {
         <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
           <AlertCircle className="size-4" />
           שגיאה בטעינת הקבוצות. נסו לרענן את הדף.
+        </div>
+      )}
+
+      {copyError && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          <AlertCircle className="size-4" />
+          העתקת הקישור נכשלה. העתיקו ידנית: {copyError}
         </div>
       )}
 
@@ -98,11 +109,20 @@ export default function GroupsListPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleCopy(group.inviteToken)}
+                    onClick={() => handleCopy(group)}
                     className="gap-2"
                   >
-                    <Copy className="size-3" />
-                    העתק קישור
+                    {copiedId === group.id ? (
+                      <>
+                        <Check className="size-3" />
+                        הועתק
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-3" />
+                        העתק קישור
+                      </>
+                    )}
                   </Button>
                 </TableCell>
                 <TableCell>
@@ -116,5 +136,5 @@ export default function GroupsListPage() {
         </Table>
       )}
     </div>
-  )
+  );
 }
