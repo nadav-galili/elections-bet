@@ -7,6 +7,14 @@
 :root {
   --radius: 0.625rem;
 
+  /* DESIGN.md candy highlight trio — decorative accents (see DESIGN.md "Candy highlight trio"). */
+  --candy-peach: #fcc4a6;
+  --candy-mint: #a8efcf;
+  --candy-butter: #ffef9d;
+  --candy-purple: #aa71ff;
+  --candy-blue: #13a8ff;
+  --ink: #181a1b;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -74,6 +82,87 @@
   --color-ring: var(--ring);
 
   --font-sans: 'Heebo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fredoka', 'Heebo', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --color-candy-peach: var(--candy-peach);
+  --color-candy-mint: var(--candy-mint);
+  --color-candy-butter: var(--candy-butter);
+  --color-candy-purple: var(--candy-purple);
+  --color-candy-blue: var(--candy-blue);
+  --color-ink: var(--ink);
+}
+
+/*
+ * DESIGN.md scope — applied ONLY to subtrees that opt in via `.theme-candy`
+ * (currently the homepage and /groups). Retones the shadcn semantic tokens to
+ * the DESIGN.md DARK surface (#27272A) so existing primitives (Button, Card,
+ * Badge) inherit it. `body.surface-dark` is toggled by those pages (mount-scoped)
+ * so the shared header + gutters darken with the page; pages without either class
+ * keep the neutral light theme.
+ */
+body.surface-dark,
+.theme-candy {
+  --background: #27272a; /* DESIGN.md surface */
+  --foreground: #f4f3f1;
+  --card: #2f2f33;
+  --card-foreground: #f4f3f1;
+  --popover: #2f2f33;
+  --popover-foreground: #f4f3f1;
+
+  --primary: #13a8ff;
+  --primary-foreground: #ffffff;
+  --secondary: #34343a;
+  --secondary-foreground: #ece9e4;
+  --muted: #303034;
+  --muted-foreground: #a6a5ac;
+  --accent: #34343a;
+  --accent-foreground: #f4f3f1;
+  --destructive: oklch(0.7 0.19 22.2);
+  --border: #3a3a40;
+  --input: #3a3a40;
+  --ring: #13a8ff;
+}
+
+.theme-candy {
+  --radius: 1rem;
+}
+
+@keyframes candy-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes candy-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+}
+
+@layer utilities {
+  .candy-marquee-track {
+    animation: candy-marquee 34s linear infinite;
+  }
+  .candy-marquee:hover .candy-marquee-track {
+    animation-play-state: paused;
+  }
+  .animate-candy-float {
+    animation: candy-float 7s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .candy-marquee-track,
+    .animate-candy-float {
+      animation: none;
+    }
+  }
 }
 
 @layer base {
