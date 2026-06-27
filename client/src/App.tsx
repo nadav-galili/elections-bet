@@ -50,7 +50,7 @@ export default function App() {
       <header className="border-b">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link to="/" className="text-lg font-extrabold">
-            תחזית בחירות
+            בט בחירות
           </Link>
           <div className="flex items-center gap-3">
             <Show when="signed-out">
