@@ -112,4 +112,38 @@ describe('PickPage', () => {
     expect(await screen.findByText('לא הגשת תחזית')).toBeInTheDocument();
     expect(screen.queryByRole('spinbutton')).toBeNull();
   });
+
+  it('shows a loading state while data is fetching', () => {
+    // Never resolves -> queries stay pending.
+    get.mockImplementation(() => new Promise(() => {}));
+    renderPage();
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).toBeNull();
+  });
+
+  it('shows an error state with a retry that refetches', async () => {
+    const user = userEvent.setup();
+    get.mockRejectedValue(new Error('boom'));
+    renderPage();
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('שגיאה בטעינת התחזית');
+    expect(alert).toHaveTextContent('נסו לרענן את הדף.');
+
+    // Now succeed and retry — the form should appear.
+    mockGet(detail(), null);
+    await user.click(screen.getByRole('button', { name: 'נסו שוב' }));
+
+    expect(await screen.findByLabelText('מפלגה א')).toBeInTheDocument();
+  });
+
+  it('renders the live countdown while the pick window is open', async () => {
+    // A lock far in the future keeps the page editable and shows the countdown.
+    mockGet(detail({ lockAt: '2999-01-01T20:00:00.000Z' }), null);
+    renderPage();
+
+    expect(await screen.findByText(/התחזיות ננעלות בעוד/)).toBeInTheDocument();
+    expect(screen.getByLabelText('מפלגה א')).toBeInTheDocument();
+  });
 });

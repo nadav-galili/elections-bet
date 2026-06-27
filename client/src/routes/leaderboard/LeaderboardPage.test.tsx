@@ -14,15 +14,14 @@ vi.mock('@/lib/api', () => ({
 
 import LeaderboardPage from '@/routes/leaderboard/LeaderboardPage';
 
-const elections: PlayerElection[] = [
-  {
-    id: 'e1',
-    nameHe: 'הכנסת ה-26',
-    lockAt: '2026-06-26T17:00:00.000Z',
-    revealAt: null,
-    resultsStatus: 'FINAL',
-  },
-];
+const baseElection: PlayerElection = {
+  id: 'e1',
+  nameHe: 'הכנסת ה-26',
+  lockAt: '2026-06-26T17:00:00.000Z',
+  revealAt: null,
+  resultsStatus: 'FINAL',
+};
+let elections: PlayerElection[] = [baseElection];
 
 // Editor name is distinct from any row name so the two never collide in queries.
 const me = { id: 'u-me', role: 'USER', displayName: 'המשתמש שלי', avatarUrl: null };
@@ -46,6 +45,7 @@ function wire(boardFor: (offset: number) => LeaderboardResponse) {
 
 afterEach(() => {
   vi.clearAllMocks();
+  elections = [baseElection];
 });
 
 describe('LeaderboardPage', () => {
@@ -75,6 +75,26 @@ describe('LeaderboardPage', () => {
 
     // Your-rank banner.
     expect(screen.getByText(/המקום שלך:/)).toBeInTheDocument();
+
+    // FINAL election surfaces the unmissable "סופי" badge.
+    expect(screen.getByText('סופי')).toBeInTheDocument();
+  });
+
+  it('published + PROVISIONAL: surfaces the מדגם badge', async () => {
+    elections = [{ ...baseElection, resultsStatus: 'PROVISIONAL' }];
+    const board: LeaderboardResponse = {
+      published: true,
+      totalCount: 1,
+      yourRank: 1,
+      rows: [{ rank: 1, userId: 'u-me', displayName: 'אני', avatarUrl: null, total: 230 }],
+    };
+    wire(() => board);
+
+    renderWithProviders(<LeaderboardPage />);
+
+    expect(await screen.findByText('אני')).toBeInTheDocument();
+    expect(screen.getByText('מדגם')).toBeInTheDocument();
+    expect(screen.queryByText('סופי')).not.toBeInTheDocument();
   });
 
   it('pagination: clicking next advances the offset and refetches', async () => {
@@ -117,6 +137,7 @@ describe('LeaderboardPage', () => {
     renderWithProviders(<LeaderboardPage />);
 
     expect(await screen.findByText('הטבלה תיחשף לאחר פרסום התוצאות')).toBeInTheDocument();
+    expect(screen.getByText(/יפרסם תוצאות \(מדגם או סופיות\)/)).toBeInTheDocument();
     expect(screen.getByText(/7 משתתפים הגישו תחזית/)).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });

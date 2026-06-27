@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { AlertCircle, Check, Loader2, Pencil, Trophy, Users, X } from 'lucide-react';
+import { Check, Loader2, Pencil, Trophy, Users, X } from 'lucide-react';
 import { usePlayerElections } from '@/lib/pick/hooks';
-import type { PlayerElection } from '@/lib/pick/types';
+import type { PlayerElection, ResultsStatus } from '@/lib/pick/types';
 import { useElectionLeaderboard } from '@/lib/leaderboard/hooks';
 import { useMe, useUpdateDisplayName } from '@/lib/me/hooks';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -14,7 +14,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { LoadingState, ErrorState, EmptyState } from '@/components/states';
 import { LeaderboardTable } from './LeaderboardTable';
+
+/** מדגם (provisional) vs סופי (final) badge — must stay visually unmissable. */
+function ResultsStatusBadge({ status }: { status: ResultsStatus }) {
+  if (status === 'PROVISIONAL') {
+    return (
+      <Badge variant="secondary" className="px-3 py-1 text-base font-extrabold">
+        מדגם
+      </Badge>
+    );
+  }
+  if (status === 'FINAL') {
+    return (
+      <Badge variant="default" className="px-3 py-1 text-base font-extrabold">
+        סופי
+      </Badge>
+    );
+  }
+  return null;
+}
 
 const PAGE_SIZE = 50;
 
@@ -104,17 +124,20 @@ export default function LeaderboardPage() {
     data: elections,
     isLoading: electionsLoading,
     isError: electionsError,
+    refetch: refetchElections,
   } = usePlayerElections();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
 
   const sorted = useMemo(() => [...(elections ?? [])].sort(byMostRecent), [elections]);
   const activeId = selectedId ?? sorted[0]?.id ?? '';
+  const activeElection = sorted.find((e) => e.id === activeId) ?? sorted[0];
 
   const {
     data,
     isLoading: boardLoading,
     isError: boardError,
+    refetch: refetchBoard,
   } = useElectionLeaderboard(activeId, { limit: PAGE_SIZE, offset });
 
   const onSelectElection = (id: string) => {
@@ -123,28 +146,21 @@ export default function LeaderboardPage() {
   };
 
   if (electionsLoading) {
-    return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
-        <Loader2 className="size-6 animate-spin" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (electionsError) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        <AlertCircle className="size-4" />
-        שגיאה בטעינת הבחירות. נסו לרענן את הדף.
-      </div>
+      <ErrorState
+        title="שגיאה בטעינת הבחירות"
+        description="נסו לרענן את הדף."
+        onRetry={() => refetchElections()}
+      />
     );
   }
 
   if (sorted.length === 0) {
-    return (
-      <div className="rounded-md border border-dashed p-4 text-base text-muted-foreground">
-        אין בחירות זמינות כרגע.
-      </div>
-    );
+    return <EmptyState icon={Trophy} title="אין בחירות זמינות כרגע." />;
   }
 
   return (
@@ -153,6 +169,9 @@ export default function LeaderboardPage() {
         <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
           <Trophy className="size-6" />
           טבלת דירוג
+          {data?.published && activeElection && (
+            <ResultsStatusBadge status={activeElection.resultsStatus} />
+          )}
         </h1>
         {sorted.length > 1 && (
           <Select value={activeId} onValueChange={onSelectElection}>
@@ -172,29 +191,22 @@ export default function LeaderboardPage() {
 
       <DisplayNameEditor />
 
-      {boardLoading && (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin" />
-        </div>
-      )}
+      {boardLoading && <LoadingState />}
 
       {boardError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          שגיאה בטעינת טבלת הדירוג. נסו לרענן את הדף.
-        </div>
+        <ErrorState
+          title="שגיאה בטעינת טבלת הדירוג"
+          description="נסו לרענן את הדף."
+          onRetry={() => refetchBoard()}
+        />
       )}
 
       {data && !data.published && data.state === 'pre_publish' && (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-            <Users className="size-8 text-muted-foreground" />
-            <p className="text-lg font-semibold">הטבלה תיחשף לאחר פרסום התוצאות</p>
-            <p className="text-base text-muted-foreground">
-              {data.participantCount} משתתפים הגישו תחזית עד כה
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Users}
+          title="הטבלה תיחשף לאחר פרסום התוצאות"
+          description={`הניקוד יופיע לאחר שמנהל המערכת יפרסם תוצאות (מדגם או סופיות). ${data.participantCount} משתתפים הגישו תחזית עד כה`}
+        />
       )}
 
       {data && data.published && (
@@ -208,9 +220,7 @@ export default function LeaderboardPage() {
           )}
 
           {data.rows.length === 0 ? (
-            <div className="rounded-md border border-dashed p-4 text-base text-muted-foreground">
-              אין עדיין משתתפים מדורגים.
-            </div>
+            <EmptyState icon={Users} title="אין עדיין משתתפים מדורגים." />
           ) : (
             <LeaderboardTable
               rows={data.rows}

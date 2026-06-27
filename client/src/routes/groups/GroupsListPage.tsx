@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Copy, Loader2, Plus, Users } from 'lucide-react';
+import { AlertCircle, Check, Copy, Plus, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useGroups } from '@/lib/groups/hooks';
@@ -12,13 +12,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
+import { formatDate } from '@/lib/time';
 
 function inviteLink(token: string) {
   return `${window.location.origin}/join/${token}`;
 }
 
 export default function GroupsListPage() {
-  const { data, isLoading, isError } = useGroups();
+  const { data, isLoading, isError, refetch } = useGroups();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
 
@@ -47,34 +49,37 @@ export default function GroupsListPage() {
         </Button>
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin" />
-        </div>
-      )}
+      {isLoading && <LoadingState label="טוען קבוצות…" />}
 
       {isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          שגיאה בטעינת הקבוצות. נסו לרענן את הדף.
-        </div>
+        <ErrorState
+          title="שגיאה בטעינת הקבוצות"
+          description="נסו לרענן את הדף."
+          onRetry={() => refetch()}
+        />
       )}
 
       {copyError && (
         <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           <AlertCircle className="size-4" />
-          העתקת הקישור נכשלה. העתיקו ידנית: {copyError}
+          העתקת הקישור נכשלה. העתיקו ידנית:{' '}
+          <span dir="ltr" className="font-mono [unicode-bidi:isolate]">
+            {copyError}
+          </span>
         </div>
       )}
 
       {!isLoading && !isError && data && data.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-md border border-dashed py-16 text-center text-muted-foreground">
-          <Users className="size-8" />
-          <p>עדיין לא נוצרו קבוצות.</p>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/groups/new">צרו את הקבוצה הראשונה</Link>
-          </Button>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="עדיין לא נוצרו קבוצות."
+          description="צרו קבוצה חדשה או הצטרפו לקבוצה קיימת באמצעות קישור הזמנה."
+          action={
+            <Button asChild variant="outline" size="sm">
+              <Link to="/groups/new">צרו את הקבוצה הראשונה</Link>
+            </Button>
+          }
+        />
       )}
 
       {!isLoading && !isError && data && data.length > 0 && (
@@ -102,8 +107,8 @@ export default function GroupsListPage() {
                 <TableCell>
                   <Badge variant="secondary">{group._count?.memberships ?? 0}</Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {new Date(group.createdAt).toLocaleDateString('he-IL')}
+                <TableCell className="text-muted-foreground tabular-nums">
+                  {formatDate(group.createdAt)}
                 </TableCell>
                 <TableCell>
                   <Button

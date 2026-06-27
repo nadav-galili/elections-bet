@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useCreateElection } from '@/lib/admin/hooks';
+import { getApiErrorMessage } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -153,8 +154,8 @@ export default function ElectionFormPage() {
 
           {createElection.isError && (
             <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-              <AlertCircle className="size-4" />
-              שמירת הבחירות נכשלה. נסו שוב.
+              <AlertCircle className="size-4 shrink-0" />
+              {getApiErrorMessage(createElection.error, 'שמירת הבחירות נכשלה. נסו שוב.')}
             </div>
           )}
 

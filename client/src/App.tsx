@@ -1,8 +1,30 @@
 import { Show, SignInButton, UserButton } from '@clerk/react';
 import { useQuery } from '@tanstack/react-query';
+import { Component, type ReactNode } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useApi } from '@/lib/api';
+import { ErrorState } from '@/components/states';
 import { Button } from '@/components/ui/button';
+
+/** Catches render errors in the routed page so a crash doesn't blank the whole app. */
+class RouteErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  reset = () => this.setState({ hasError: false });
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <ErrorState title="שגיאה בטעינת הדף" description="נסו לרענן את הדף." onRetry={this.reset} />
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /** Shown only to signed-in super-admins: a link into the admin surface. */
 function AdminNavLink() {
@@ -50,7 +72,9 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-8">
-        <Outlet />
+        <RouteErrorBoundary>
+          <Outlet />
+        </RouteErrorBoundary>
       </main>
     </div>
   );

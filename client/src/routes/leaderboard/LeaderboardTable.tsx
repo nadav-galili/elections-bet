@@ -92,7 +92,7 @@ export function LeaderboardTable({
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id}>
             {headerGroup.headers.map((header) => (
-              <TableHead key={header.id} className="text-right">
+              <TableHead key={header.id} className="text-start">
                 {header.isPlaceholder
                   ? null
                   : flexRender(header.column.columnDef.header, header.getContext())}
@@ -111,7 +111,7 @@ export function LeaderboardTable({
               className={cn(isYou && 'bg-secondary/60 hover:bg-secondary/60')}
             >
               {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="text-right">
+                <TableCell key={cell.id} className="text-start">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>
               ))}

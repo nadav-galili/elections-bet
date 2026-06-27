@@ -1,8 +1,9 @@
-import { AlertCircle, Loader2, Plus, Vote } from 'lucide-react';
+import { Plus, Vote } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useElections } from '@/lib/admin/hooks';
 import { formatDateTime, resultsStatusLabels } from '@/lib/admin/format';
 import type { ResultsStatus } from '@/lib/admin/types';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,7 +22,7 @@ function statusVariant(status: ResultsStatus): 'default' | 'secondary' | 'outlin
 }
 
 export default function AdminElectionsPage() {
-  const { data, isLoading, isError } = useElections();
+  const { data, isLoading, isError, refetch } = useElections();
 
   return (
     <div className="space-y-6">
@@ -35,27 +36,26 @@ export default function AdminElectionsPage() {
         </Button>
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin" />
-        </div>
-      )}
+      {isLoading && <LoadingState label="טוען בחירות…" />}
 
       {isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          שגיאה בטעינת הבחירות. נסו לרענן את הדף.
-        </div>
+        <ErrorState
+          title="שגיאה בטעינת הבחירות"
+          description="נסו לרענן את הדף."
+          onRetry={() => refetch()}
+        />
       )}
 
       {!isLoading && !isError && data && data.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-md border border-dashed py-16 text-center text-muted-foreground">
-          <Vote className="size-8" />
-          <p>עדיין לא נוצרו בחירות.</p>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/admin/elections/new">צרו את הבחירות הראשונות</Link>
-          </Button>
-        </div>
+        <EmptyState
+          icon={Vote}
+          title="עדיין לא נוצרו בחירות."
+          action={
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/elections/new">צרו את הבחירות הראשונות</Link>
+            </Button>
+          }
+        />
       )}
 
       {!isLoading && !isError && data && data.length > 0 && (

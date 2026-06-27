@@ -30,6 +30,7 @@ import {
 } from '@/lib/admin/format';
 import type { ElectionDetail, Party } from '@/lib/admin/types';
 import { getApiErrorMessage } from '@/lib/utils';
+import { ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -185,8 +186,8 @@ function ConfigForm({ election }: { election: ElectionDetail }) {
 
             {updateElection.isError && (
               <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                <AlertCircle className="size-4" />
-                שמירת ההגדרות נכשלה. נסו שוב.
+                <AlertCircle className="size-4 shrink-0" />
+                {getApiErrorMessage(updateElection.error, 'שמירת ההגדרות נכשלה. נסו שוב.')}
               </div>
             )}
 
@@ -251,7 +252,7 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
                 <TableHead>שם</TableHead>
                 <TableHead>גוש</TableHead>
                 <TableHead>סדר</TableHead>
-                <TableHead className="text-left">פעולות</TableHead>
+                <TableHead className="text-end">פעולות</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -276,7 +277,7 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
                   <TableCell className="font-medium">{party.nameHe}</TableCell>
                   <TableCell>{blocLabel(party.bloc, election)}</TableCell>
                   <TableCell>{party.displayOrder}</TableCell>
-                  <TableCell className="text-left">
+                  <TableCell className="text-end">
                     <div className="flex justify-start gap-1">
                       <Button
                         variant="ghost"
@@ -304,8 +305,8 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
 
         {deleteParty.isError && (
           <div className="mt-3 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            <AlertCircle className="size-4" />
-            מחיקת המפלגה נכשלה. נסו שוב.
+            <AlertCircle className="size-4 shrink-0" />
+            {getApiErrorMessage(deleteParty.error, 'מחיקת המפלגה נכשלה. נסו שוב.')}
           </div>
         )}
       </CardContent>
@@ -602,7 +603,7 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
 export default function ElectionDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const { data, isLoading, isError } = useElection(id);
+  const { data, isLoading, isError, refetch } = useElection(id);
   const deleteElection = useDeleteElection();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -631,17 +632,14 @@ export default function ElectionDetailPage() {
         )}
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin" />
-        </div>
-      )}
+      {isLoading && <LoadingState label="טוען בחירות…" />}
 
       {isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          שגיאה בטעינת הבחירות.
-        </div>
+        <ErrorState
+          title="שגיאה בטעינת הבחירות"
+          description="נסו לרענן את הדף."
+          onRetry={() => refetch()}
+        />
       )}
 
       {!isLoading && !isError && data && (

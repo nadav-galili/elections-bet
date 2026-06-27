@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { AlertCircle, Loader2, Trophy, Users } from 'lucide-react';
+import { Trophy, Users } from 'lucide-react';
 import { useGroupLeaderboard } from '@/lib/leaderboard/hooks';
 import { useMe } from '@/lib/me/hooks';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { LoadingState, ErrorState, EmptyState } from '@/components/states';
 import { LeaderboardTable } from './LeaderboardTable';
 
 const PAGE_SIZE = 50;
@@ -11,53 +11,41 @@ const PAGE_SIZE = 50;
 export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
   const { data: me } = useMe();
   const [offset, setOffset] = useState(0);
-  const { data, isLoading, isError } = useGroupLeaderboard(groupId, { limit: PAGE_SIZE, offset });
+  const { data, isLoading, isError, refetch } = useGroupLeaderboard(groupId, {
+    limit: PAGE_SIZE,
+    offset,
+  });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
-        <Loader2 className="size-6 animate-spin" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (isError || !data) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        <AlertCircle className="size-4" />
-        שגיאה בטעינת טבלת הדירוג. נסו לרענן את הדף.
-      </div>
+      <ErrorState
+        title="שגיאה בטעינת טבלת הדירוג"
+        description="נסו לרענן את הדף."
+        onRetry={() => refetch()}
+      />
     );
   }
 
   if (!data.published) {
     // Distinguish "no election running" from "active but not yet published".
     if (data.state === 'no_active') {
-      return (
-        <div className="rounded-md border border-dashed p-4 text-base text-muted-foreground">
-          אין בחירות פעילות כרגע.
-        </div>
-      );
+      return <EmptyState icon={Trophy} title="אין בחירות פעילות כרגע." />;
     }
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-          <Users className="size-8 text-muted-foreground" />
-          <p className="text-lg font-semibold">הטבלה תיחשף לאחר פרסום התוצאות</p>
-          <p className="text-base text-muted-foreground">
-            {data.participantCount} חברים הגישו תחזית עד כה
-          </p>
-        </CardContent>
-      </Card>
+      <EmptyState
+        icon={Users}
+        title="הטבלה תיחשף לאחר פרסום התוצאות"
+        description={`הניקוד יופיע לאחר שמנהל המערכת יפרסם תוצאות (מדגם או סופיות). ${data.participantCount} חברים הגישו תחזית עד כה`}
+      />
     );
   }
 
   if (data.rows.length === 0 && offset === 0) {
-    return (
-      <div className="rounded-md border border-dashed p-4 text-base text-muted-foreground">
-        אין עדיין משתתפים מדורגים בקבוצה זו.
-      </div>
-    );
+    return <EmptyState icon={Users} title="אין עדיין משתתפים מדורגים בקבוצה זו." />;
   }
 
   return (

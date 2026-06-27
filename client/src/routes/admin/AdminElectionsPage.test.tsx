@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import type { Election } from '@/lib/admin/types';
@@ -43,6 +44,20 @@ describe('AdminElectionsPage', () => {
     get.mockResolvedValueOnce({ data: [] });
 
     renderWithProviders(<AdminElectionsPage />, { initialEntries: ['/admin'] });
+
+    await waitFor(() => expect(screen.getByText('עדיין לא נוצרו בחירות.')).toBeInTheDocument());
+  });
+
+  it('shows an error state with a retry that refetches', async () => {
+    get.mockRejectedValueOnce(new Error('boom'));
+
+    renderWithProviders(<AdminElectionsPage />, { initialEntries: ['/admin'] });
+
+    expect(await screen.findByText('שגיאה בטעינת הבחירות')).toBeInTheDocument();
+
+    // Retrying refetches: succeed this time and the list renders.
+    get.mockResolvedValueOnce({ data: [] });
+    await userEvent.click(screen.getByRole('button', { name: 'נסו שוב' }));
 
     await waitFor(() => expect(screen.getByText('עדיין לא נוצרו בחירות.')).toBeInTheDocument());
   });
