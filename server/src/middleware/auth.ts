@@ -73,6 +73,12 @@ export async function requireAuthMw(
 ): Promise<void> {
   const clerkId = getClerkId(req);
   const user = await ensureDbUser(clerkId);
+  // This is the single ban gate (reversible flag). Every player router must mount
+  // requireAuthMw for it to apply; requireSuperAdmin deliberately does NOT check
+  // bannedAt, so the admin surface is never self-lockable by a ban.
+  if (user.bannedAt) {
+    throw new HttpError(403, 'חשבונך הושעה');
+  }
   (req as AuthedRequest).dbUser = user;
   next();
 }

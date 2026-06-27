@@ -151,3 +151,35 @@ describe('PUT /api/elections/:id/pick', () => {
     expect(res.body.error).toBe('התחזית חייבת לכלול את כל המפלגות בבחירות');
   });
 });
+
+describe('banned players are locked out of the pick routes', () => {
+  beforeEach(() => {
+    // A super-admin ban is a reversible flag on the user row.
+    mocked.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      clerkId: 'clerk_test',
+      role: 'USER',
+      bannedAt: new Date('2026-06-01T00:00:00.000Z'),
+    });
+  });
+
+  it('403 on GET /api/elections/:id/pick', async () => {
+    const res = await request(createApp()).get('/api/elections/e1/pick');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('חשבונך הושעה');
+  });
+
+  it('403 on PUT /api/elections/:id/pick (cannot submit a prediction)', async () => {
+    const res = await request(createApp())
+      .put('/api/elections/e1/pick')
+      .send({
+        entries: [
+          { partyId: 'p1', mandates: 60 },
+          { partyId: 'p2', mandates: 60 },
+        ],
+      });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('חשבונך הושעה');
+    expect(mocked.pick.upsert).not.toHaveBeenCalled();
+  });
+});

@@ -49,3 +49,52 @@ export interface ResultEntry {
   partyId: string;
   actualMandates: number;
 }
+
+export type Role = 'USER' | 'SUPER_ADMIN';
+
+/** A group as seen in the super-admin god-mode group management table. */
+export interface AdminGroup {
+  id: string;
+  nameHe: string;
+  createdAt: string;
+  admin: { id: string; displayName: string | null; email: string | null } | null;
+  memberCount: number;
+}
+
+/** One membership row in the god-mode group detail (for reassign/remove). */
+export interface AdminGroupMember {
+  id: string;
+  userId: string;
+  joinedAt: string;
+  user: { id: string; displayName: string | null; email: string | null; avatarUrl: string | null };
+}
+
+/** A single group with its full roster, served from the admin surface. */
+export interface AdminGroupDetail {
+  id: string;
+  nameHe: string;
+  adminUserId: string;
+  createdAt: string;
+  memberships: AdminGroupMember[];
+}
+
+/** A user as seen in the super-admin god-mode user management table. */
+export interface AdminUser {
+  id: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  role: Role;
+  bannedAt: string | null;
+  createdAt: string;
+}
+
+/** Aggregate stats shown on the super-admin overview dashboard. */
+export interface AdminOverview {
+  users: number;
+  groups: number;
+  elections: number;
+  activeElection: { id: string; nameHe: string } | null;
+  picksSubmitted: number;
+  participationRate: number;
+}

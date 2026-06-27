@@ -3,13 +3,14 @@ import { requireAuth } from '@clerk/express';
 import { prisma } from '../db';
 import { HttpError } from '../middleware/error';
 import { validate } from '../middleware/validate';
-import { getClerkId, ensureDbUser } from '../middleware/auth';
+import { requireAuthMw, type AuthedRequest } from '../middleware/auth';
 import { upsertPickSchema } from '../lib/validation/pick';
 
 const router = Router();
 
-// Every player-facing route requires a signed-in user.
-router.use(requireAuth());
+// Every player-facing route requires a signed-in user. requireAuthMw also
+// rejects banned users (403), so a banned player can't read or submit picks.
+router.use(requireAuth(), requireAuthMw);
 
 // GET /api/elections — elections a player can pick in.
 router.get('/elections', async (_req, res) => {
@@ -47,7 +48,7 @@ router.get('/elections/:id', async (req, res) => {
 // GET /api/elections/:id/pick — the CURRENT user's pick (or null).
 router.get('/elections/:id/pick', async (req, res) => {
   const electionId = String(req.params.id);
-  const user = await ensureDbUser(getClerkId(req));
+  const user = (req as AuthedRequest).dbUser!;
   const pick = await prisma.pick.findUnique({
     where: { userId_electionId: { userId: user.id, electionId } },
     include: { entries: { select: { partyId: true, mandates: true } } },
@@ -64,7 +65,7 @@ router.put('/elections/:id/pick', validate(upsertPickSchema), async (req, res) =
   const electionId = String(req.params.id);
   const entries = req.body.entries as { partyId: string; mandates: number }[];
 
-  const user = await ensureDbUser(getClerkId(req));
+  const user = (req as AuthedRequest).dbUser!;
 
   const election = await prisma.election.findUnique({
     where: { id: electionId },

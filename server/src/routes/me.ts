@@ -2,15 +2,15 @@ import { Router } from 'express';
 import { requireAuth } from '@clerk/express';
 import { prisma } from '../db';
 import { validate } from '../middleware/validate';
-import { getClerkId, ensureDbUser, requireAuthMw, type AuthedRequest } from '../middleware/auth';
+import { requireAuthMw, type AuthedRequest } from '../middleware/auth';
 import { updateMeSchema } from '../lib/validation/me';
 
 const router = Router();
 
 // GET /api/me — the current user's local profile (protected).
-router.get('/me', requireAuth(), async (req, res) => {
-  const clerkId = getClerkId(req);
-  const user = await ensureDbUser(clerkId);
+// requireAuthMw rejects banned users (403) before the profile is returned.
+router.get('/me', requireAuth(), requireAuthMw, async (req, res) => {
+  const user = (req as AuthedRequest).dbUser!;
   res.json({
     id: user.id,
     role: user.role,
