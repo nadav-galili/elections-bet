@@ -26,6 +26,14 @@ function byMostRecent(a: PlayerElection, b: PlayerElection) {
   return 0;
 }
 
+/** Pull the server's specific Hebrew validation/error message off an axios error. */
+function displayNameErrorMessage(error: unknown): string {
+  const data = (
+    error as { response?: { data?: { error?: string; issues?: { message?: string }[] } } }
+  )?.response?.data;
+  return data?.issues?.[0]?.message ?? data?.error ?? 'עדכון השם נכשל. נסו שוב.';
+}
+
 function DisplayNameEditor() {
   const { data: me } = useMe();
   const updateName = useUpdateDisplayName();
@@ -82,7 +90,9 @@ function DisplayNameEditor() {
         ביטול
       </Button>
       {updateName.isError && (
-        <span className="text-sm text-destructive">עדכון השם נכשל. נסו שוב.</span>
+        <span className="text-sm text-destructive">
+          {displayNameErrorMessage(updateName.error)}
+        </span>
       )}
     </div>
   );
@@ -175,7 +185,7 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {data && !data.published && (
+      {data && !data.published && data.state === 'pre_publish' && (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <Users className="size-8 text-muted-foreground" />
@@ -193,7 +203,7 @@ export default function LeaderboardPage() {
             <div className="flex items-center gap-2 rounded-md border bg-secondary/40 p-3 text-base font-medium">
               <Trophy className="size-4" />
               המקום שלך: <span className="font-bold tabular-nums">{data.yourRank}</span> מתוך{' '}
-              <span className="font-bold tabular-nums">{data.total}</span>
+              <span className="font-bold tabular-nums">{data.totalCount}</span>
             </div>
           )}
 
@@ -219,13 +229,13 @@ export default function LeaderboardPage() {
               הקודם
             </Button>
             <span className="text-sm text-muted-foreground tabular-nums">
-              {Math.min(offset + 1, data.total)}–{Math.min(offset + data.rows.length, data.total)}{' '}
-              מתוך {data.total}
+              {Math.min(offset + 1, data.totalCount)}–
+              {Math.min(offset + data.rows.length, data.totalCount)} מתוך {data.totalCount}
             </span>
             <Button
               variant="outline"
               size="sm"
-              disabled={offset + PAGE_SIZE >= data.total}
+              disabled={offset + PAGE_SIZE >= data.totalCount}
               onClick={() => setOffset((o) => o + PAGE_SIZE)}
             >
               הבא

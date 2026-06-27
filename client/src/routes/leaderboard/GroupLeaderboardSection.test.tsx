@@ -30,7 +30,7 @@ describe('GroupLeaderboardSection', () => {
   it('published: highlights the caller row and shows the within-group rank', async () => {
     wire({
       published: true,
-      total: 3,
+      totalCount: 3,
       yourRank: 2,
       rows: [
         { rank: 1, userId: 'u-a', displayName: 'דנה', avatarUrl: null, total: 220 },
@@ -52,7 +52,7 @@ describe('GroupLeaderboardSection', () => {
   });
 
   it('pre-publish: shows the participation-count state and no rows', async () => {
-    wire({ published: false, participantCount: 4 });
+    wire({ published: false, state: 'pre_publish', participantCount: 4 });
 
     renderWithProviders(<GroupLeaderboardSection groupId="g1" />);
 
@@ -61,16 +61,26 @@ describe('GroupLeaderboardSection', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
+  it('no active election: shows a distinct message, not the participation card', async () => {
+    wire({ published: false, state: 'no_active' });
+
+    renderWithProviders(<GroupLeaderboardSection groupId="g1" />);
+
+    expect(await screen.findByText('אין בחירות פעילות כרגע.')).toBeInTheDocument();
+    expect(screen.queryByText('הטבלה תיחשף לאחר פרסום התוצאות')).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
   it('pagination: clicking next advances the offset and refetches', async () => {
     const page0: LeaderboardResponse = {
       published: true,
-      total: 120,
+      totalCount: 120,
       yourRank: 99,
       rows: [{ rank: 1, userId: 'u-a', displayName: 'דנה', avatarUrl: null, total: 220 }],
     };
     const page1: LeaderboardResponse = {
       published: true,
-      total: 120,
+      totalCount: 120,
       yourRank: 99,
       rows: [{ rank: 51, userId: 'u-z', displayName: 'רון', avatarUrl: null, total: 140 }],
     };

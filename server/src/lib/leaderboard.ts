@@ -11,7 +11,7 @@ export interface LeaderboardEntry {
   avatarUrl: string | null;
 }
 
-/** A ranked, client-facing leaderboard row. */
+/** A ranked, client-facing leaderboard row. `total` is the player's score. */
 export interface LeaderboardRow {
   rank: number;
   userId: string;
@@ -19,6 +19,20 @@ export interface LeaderboardRow {
   avatarUrl: string | null;
   total: number;
 }
+
+/**
+ * The API response for both leaderboard endpoints — a discriminated union.
+ * This MIRRORS the client type in client/src/lib/leaderboard/types.ts; keep the
+ * two in sync (the client/server workspaces are decoupled and share no module).
+ *
+ * - state 'pre_publish' → results not published; only a participation count.
+ * - state 'no_active'   → no active election (group board only).
+ * - published: true     → a ranked page slice (`totalCount` = whole-board size).
+ */
+export type LeaderboardResponse =
+  | { published: false; state: 'pre_publish'; participantCount: number }
+  | { published: false; state: 'no_active' }
+  | { published: true; rows: LeaderboardRow[]; totalCount: number; yourRank: number | null };
 
 /**
  * Rank entries with STANDARD COMPETITION RANKING (ties share a rank, the next

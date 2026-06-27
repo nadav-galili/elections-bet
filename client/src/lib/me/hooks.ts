@@ -35,5 +35,10 @@ export function useUpdateDisplayName() {
       void queryClient.invalidateQueries({ queryKey: meKeys.me });
       void queryClient.invalidateQueries({ queryKey: leaderboardKeys.all });
     },
+    onError: (error) => {
+      // Don't let the failure vanish silently — the editor surfaces the server's
+      // message, but log it too so a stuck rename is debuggable.
+      console.error('Failed to update display name', error);
+    },
   });
 }

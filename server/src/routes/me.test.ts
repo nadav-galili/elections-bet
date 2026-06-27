@@ -78,4 +78,13 @@ describe('PATCH /api/me', () => {
     expect(Array.isArray(res.body.issues)).toBe(true);
     expect(mocked.user.update).not.toHaveBeenCalled();
   });
+
+  it('400 when displayName exceeds the 50-char limit', async () => {
+    const res = await request(createApp())
+      .patch('/api/me')
+      .send({ displayName: 'א'.repeat(51) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('שגיאת אימות');
+    expect(mocked.user.update).not.toHaveBeenCalled();
+  });
 });

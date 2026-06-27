@@ -68,7 +68,7 @@ describe('GET /api/elections/:id/leaderboard — global board', () => {
 
     const res = await request(createApp()).get('/api/elections/e1/leaderboard');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ published: false, participantCount: 7 });
+    expect(res.body).toEqual({ published: false, state: 'pre_publish', participantCount: 7 });
     // Privacy: Score must never be touched in the pre-publish branch.
     expect(mocked.score.findMany).not.toHaveBeenCalled();
     expect(res.body.rows).toBeUndefined();
@@ -91,7 +91,7 @@ describe('GET /api/elections/:id/leaderboard — global board', () => {
     const res = await request(createApp()).get('/api/elections/e1/leaderboard');
     expect(res.status).toBe(200);
     expect(res.body.published).toBe(true);
-    expect(res.body.total).toBe(3);
+    expect(res.body.totalCount).toBe(3);
     expect(res.body.rows.map((r: { userId: string }) => r.userId)).toEqual(['b', 'a', 'c']);
     expect(res.body.rows.map((r: { rank: number }) => r.rank)).toEqual([1, 1, 3]);
     // Caller u1 is not on the board ⇒ yourRank null.
@@ -106,7 +106,7 @@ describe('GET /api/elections/:id/leaderboard — global board', () => {
     const res = await request(createApp()).get('/api/elections/e1/leaderboard');
     expect(res.status).toBe(200);
     expect(res.body.published).toBe(true);
-    expect(res.body.total).toBe(1);
+    expect(res.body.totalCount).toBe(1);
   });
 
   it('paginates with limit/offset; yourRank is independent of the page slice', async () => {
@@ -129,11 +129,67 @@ describe('GET /api/elections/:id/leaderboard — global board', () => {
       .get('/api/elections/e1/leaderboard')
       .query({ limit: 2, offset: 2 });
     expect(res.status).toBe(200);
-    expect(res.body.total).toBe(4);
+    expect(res.body.totalCount).toBe(4);
     // page = rows 3 & 4
     expect(res.body.rows.map((r: { userId: string }) => r.userId)).toEqual(['u3', 'u4']);
     // yourRank is u3's global rank (3), even though the slice starts at offset 2.
     expect(res.body.yourRank).toBe(3);
+  });
+
+  it('orders a total-tie by submittedAt ASC (not userId) — guards the tie-break wiring', async () => {
+    // u-zzz and u-aaa tie on 100; u-zzz submitted EARLIER, so it must come first
+    // even though its userId sorts AFTER u-aaa. If submittedAt weren't wired into
+    // ranking, userId ASC would (wrongly) put u-aaa first.
+    asUser('u-zzz');
+    mocked.election.findUnique.mockResolvedValue({ id: 'e1', resultsStatus: 'FINAL' });
+    mocked.score.findMany.mockResolvedValue([score('u-aaa', 100), score('u-zzz', 100)]);
+    mocked.pick.findMany.mockResolvedValue([
+      pick('u-aaa', new Date('2026-01-02T00:00:00Z')),
+      pick('u-zzz', new Date('2026-01-01T00:00:00Z')),
+    ]);
+
+    const res = await request(createApp()).get('/api/elections/e1/leaderboard');
+    expect(res.status).toBe(200);
+    expect(res.body.rows.map((r: { userId: string }) => r.userId)).toEqual(['u-zzz', 'u-aaa']);
+    expect(res.body.rows.map((r: { rank: number }) => r.rank)).toEqual([1, 1]);
+    expect(res.body.yourRank).toBe(1);
+  });
+
+  it('offset past the end returns an empty page but preserves totalCount and yourRank', async () => {
+    asUser('u3');
+    mocked.election.findUnique.mockResolvedValue({ id: 'e1', resultsStatus: 'FINAL' });
+    mocked.score.findMany.mockResolvedValue([score('u1', 100), score('u2', 90), score('u3', 80)]);
+    mocked.pick.findMany.mockResolvedValue([
+      pick('u1', new Date('2026-01-01T00:00:00Z')),
+      pick('u2', new Date('2026-01-01T00:00:00Z')),
+      pick('u3', new Date('2026-01-01T00:00:00Z')),
+    ]);
+
+    const res = await request(createApp())
+      .get('/api/elections/e1/leaderboard')
+      .query({ offset: 100 });
+    expect(res.status).toBe(200);
+    expect(res.body.rows).toEqual([]);
+    expect(res.body.totalCount).toBe(3);
+    expect(res.body.yourRank).toBe(3);
+  });
+
+  it('clamps an over-max limit to 100 (slice never exceeds MAX_LIMIT)', async () => {
+    mocked.election.findUnique.mockResolvedValue({ id: 'e1', resultsStatus: 'FINAL' });
+    // 101 distinct scores; a limit of 999 must clamp the page to 100 rows.
+    const scores = Array.from({ length: 101 }, (_, i) => score(`u${i}`, 1000 - i));
+    const picks = Array.from({ length: 101 }, (_, i) =>
+      pick(`u${i}`, new Date('2026-01-01T00:00:00Z')),
+    );
+    mocked.score.findMany.mockResolvedValue(scores);
+    mocked.pick.findMany.mockResolvedValue(picks);
+
+    const res = await request(createApp())
+      .get('/api/elections/e1/leaderboard')
+      .query({ limit: 999 });
+    expect(res.status).toBe(200);
+    expect(res.body.totalCount).toBe(101);
+    expect(res.body.rows).toHaveLength(100);
   });
 
   it('clamps a bad limit (NaN → default, over-max → 100, <1 → 1)', async () => {
@@ -158,15 +214,16 @@ describe('GET /api/groups/:id/leaderboard — group board', () => {
     expect(res.body.error).toBe('אינך חבר בקבוצה זו');
   });
 
-  it('no active election: published false, participantCount 0', async () => {
+  it('no active election: a distinct no_active state (not a 0-count pre-publish)', async () => {
     mocked.groupMembership.findUnique.mockResolvedValue({ id: 'm1', userId: 'u1' });
     mocked.groupMembership.findMany.mockResolvedValue([{ userId: 'u1' }]);
     mocked.election.findFirst.mockResolvedValue(null);
 
     const res = await request(createApp()).get('/api/groups/g1/leaderboard');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ published: false, participantCount: 0 });
+    expect(res.body).toEqual({ published: false, state: 'no_active' });
     expect(mocked.score.findMany).not.toHaveBeenCalled();
+    expect(mocked.pick.count).not.toHaveBeenCalled();
   });
 
   it('NONE active election: participantCount scoped to members, NO scores', async () => {
@@ -177,7 +234,7 @@ describe('GET /api/groups/:id/leaderboard — group board', () => {
 
     const res = await request(createApp()).get('/api/groups/g1/leaderboard');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ published: false, participantCount: 2 });
+    expect(res.body).toEqual({ published: false, state: 'pre_publish', participantCount: 2 });
     expect(mocked.score.findMany).not.toHaveBeenCalled();
     expect(mocked.pick.count).toHaveBeenCalledWith({
       where: {
@@ -203,7 +260,7 @@ describe('GET /api/groups/:id/leaderboard — group board', () => {
     const res = await request(createApp()).get('/api/groups/g1/leaderboard');
     expect(res.status).toBe(200);
     expect(res.body.published).toBe(true);
-    expect(res.body.total).toBe(2);
+    expect(res.body.totalCount).toBe(2);
     expect(res.body.rows.map((r: { userId: string }) => r.userId)).toEqual(['u1', 'u2']);
     expect(res.body.yourRank).toBe(2);
     // The Score query must be member-scoped.
@@ -215,5 +272,21 @@ describe('GET /api/groups/:id/leaderboard — group board', () => {
         }),
       }),
     );
+  });
+
+  it('published but caller has no Score: published true with yourRank null', async () => {
+    asUser('u2'); // member, but never scored (absent from the Score rows)
+    mocked.groupMembership.findUnique.mockResolvedValue({ id: 'm2', userId: 'u2' });
+    mocked.groupMembership.findMany.mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }]);
+    mocked.election.findFirst.mockResolvedValue({ id: 'e1', resultsStatus: 'FINAL' });
+    mocked.score.findMany.mockResolvedValue([score('u1', 100)]);
+    mocked.pick.findMany.mockResolvedValue([pick('u1', new Date('2026-01-01T00:00:00Z'))]);
+
+    const res = await request(createApp()).get('/api/groups/g1/leaderboard');
+    expect(res.status).toBe(200);
+    expect(res.body.published).toBe(true);
+    expect(res.body.totalCount).toBe(1);
+    expect(res.body.rows.map((r: { userId: string }) => r.userId)).toEqual(['u1']);
+    expect(res.body.yourRank).toBeNull();
   });
 });

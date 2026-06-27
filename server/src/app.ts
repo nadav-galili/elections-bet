@@ -41,9 +41,10 @@ export function createApp() {
   app.use('/api', meRouter);
   app.use('/api', picksRouter);
   app.use('/api/groups', groupsRouter);
-  // Mounted after groupsRouter so GET /api/groups/:id/leaderboard falls through
-  // (groupsRouter has no :id/leaderboard route) to here. The /leaderboard suffix
-  // keeps /elections/:id/leaderboard distinct from picksRouter's /elections/:id.
+  // The leaderboard paths don't collide with the routers above: Express matches
+  // on the full path, and no route in groupsRouter (`/groups/:id`) or picksRouter
+  // (`/elections/:id`) matches the extra `/leaderboard` segment. Mount order here
+  // is therefore not load-bearing — it's kept tidy alongside the other /api routers.
   app.use('/api', leaderboardRouter);
   app.use('/api/admin', adminRouter);
 

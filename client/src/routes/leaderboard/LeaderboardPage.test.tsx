@@ -52,7 +52,7 @@ describe('LeaderboardPage', () => {
   it('published: renders rows and highlights the caller row', async () => {
     const board: LeaderboardResponse = {
       published: true,
-      total: 2,
+      totalCount: 2,
       yourRank: 2,
       rows: [
         { rank: 1, userId: 'u-other', displayName: 'דנה', avatarUrl: null, total: 230 },
@@ -80,13 +80,13 @@ describe('LeaderboardPage', () => {
   it('pagination: clicking next advances the offset and refetches', async () => {
     const page0: LeaderboardResponse = {
       published: true,
-      total: 60,
+      totalCount: 60,
       yourRank: 1,
       rows: [{ rank: 1, userId: 'u-me', displayName: 'אני', avatarUrl: null, total: 230 }],
     };
     const page1: LeaderboardResponse = {
       published: true,
-      total: 60,
+      totalCount: 60,
       yourRank: 1,
       rows: [{ rank: 51, userId: 'u-51', displayName: 'משתתף 51', avatarUrl: null, total: 100 }],
     };
@@ -112,7 +112,7 @@ describe('LeaderboardPage', () => {
   });
 
   it('published:false: shows the participation-count state and no rows', async () => {
-    wire(() => ({ published: false, participantCount: 7 }));
+    wire(() => ({ published: false, state: 'pre_publish', participantCount: 7 }));
 
     renderWithProviders(<LeaderboardPage />);
 
@@ -122,7 +122,7 @@ describe('LeaderboardPage', () => {
   });
 
   it('edit display name: calls PATCH /api/me with the new name', async () => {
-    wire(() => ({ published: false, participantCount: 0 }));
+    wire(() => ({ published: false, state: 'pre_publish', participantCount: 0 }));
     patch.mockResolvedValue({ data: { ...me, displayName: 'שם חדש' } });
 
     renderWithProviders(<LeaderboardPage />);

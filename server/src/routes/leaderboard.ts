@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { HttpError } from '../middleware/error';
 import { requireAuthMw, AuthedRequest } from '../middleware/auth';
-import { rankEntries, type LeaderboardEntry, type LeaderboardRow } from '../lib/leaderboard';
+import { rankEntries, type LeaderboardEntry, type LeaderboardResponse } from '../lib/leaderboard';
 
 const router = Router();
 
@@ -57,7 +57,7 @@ function buildPublishedPayload(
   callerUserId: string,
   limit: number,
   offset: number,
-): { published: true; rows: LeaderboardRow[]; total: number; yourRank: number | null } {
+): Extract<LeaderboardResponse, { published: true }> {
   const entries: LeaderboardEntry[] = scores.map((s) => ({
     userId: s.userId,
     total: s.total,
@@ -76,7 +76,7 @@ function buildPublishedPayload(
   return {
     published: true,
     rows: ranked.slice(offset, offset + limit),
-    total: ranked.length,
+    totalCount: ranked.length,
     yourRank,
   };
 }
@@ -99,7 +99,11 @@ router.get('/elections/:id/leaderboard', async (req, res) => {
     const participantCount = await prisma.pick.count({
       where: { electionId, submittedAt: { not: null } },
     });
-    res.json({ published: false, participantCount });
+    res.json({
+      published: false,
+      state: 'pre_publish',
+      participantCount,
+    } satisfies LeaderboardResponse);
     return;
   }
 
@@ -144,8 +148,11 @@ router.get('/groups/:id/leaderboard', async (req, res) => {
   ]);
   const memberIds = memberships.map((m) => m.userId);
 
+  // No active election is a distinct state from "active but pre-publish": the
+  // group board can't show a participation count for an election that isn't
+  // running yet. Mirrors the 'no_active' phase the group detail page handles.
   if (!activeElection) {
-    res.json({ published: false, participantCount: 0 });
+    res.json({ published: false, state: 'no_active' } satisfies LeaderboardResponse);
     return;
   }
 
@@ -159,7 +166,11 @@ router.get('/groups/:id/leaderboard', async (req, res) => {
         userId: { in: memberIds },
       },
     });
-    res.json({ published: false, participantCount });
+    res.json({
+      published: false,
+      state: 'pre_publish',
+      participantCount,
+    } satisfies LeaderboardResponse);
     return;
   }
 

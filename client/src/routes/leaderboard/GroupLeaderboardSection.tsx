@@ -31,6 +31,14 @@ export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
   }
 
   if (!data.published) {
+    // Distinguish "no election running" from "active but not yet published".
+    if (data.state === 'no_active') {
+      return (
+        <div className="rounded-md border border-dashed p-4 text-base text-muted-foreground">
+          אין בחירות פעילות כרגע.
+        </div>
+      );
+    }
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
@@ -59,7 +67,7 @@ export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
           <Trophy className="size-4" />
           המקום שלך בקבוצה: <span className="font-bold tabular-nums">
             {data.yourRank}
-          </span> מתוך <span className="font-bold tabular-nums">{data.total}</span>
+          </span> מתוך <span className="font-bold tabular-nums">{data.totalCount}</span>
         </div>
       )}
       <LeaderboardTable rows={data.rows} currentUserId={me?.id ?? null} yourRank={data.yourRank} />
@@ -74,13 +82,13 @@ export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
           הקודם
         </Button>
         <span className="text-sm text-muted-foreground tabular-nums">
-          {Math.min(offset + 1, data.total)}–{Math.min(offset + data.rows.length, data.total)} מתוך{' '}
-          {data.total}
+          {Math.min(offset + 1, data.totalCount)}–
+          {Math.min(offset + data.rows.length, data.totalCount)} מתוך {data.totalCount}
         </span>
         <Button
           variant="outline"
           size="sm"
-          disabled={offset + PAGE_SIZE >= data.total}
+          disabled={offset + PAGE_SIZE >= data.totalCount}
           onClick={() => setOffset((o) => o + PAGE_SIZE)}
         >
           הבא

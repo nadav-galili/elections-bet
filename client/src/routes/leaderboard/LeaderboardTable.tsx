@@ -45,7 +45,11 @@ export function LeaderboardTable({
 }: {
   rows: LeaderboardRow[];
   currentUserId: string | null;
-  /** The caller's overall rank — kept in the API for callers; the row is highlighted by userId. */
+  /**
+   * Accepted for prop symmetry with the page-level banner but intentionally
+   * unused here: the table highlights the caller's row by `userId`, and the
+   * numeric rank is shown in the banner that lives in the parent page.
+   */
   yourRank?: number | null;
 }) {
   const columns = useMemo(
