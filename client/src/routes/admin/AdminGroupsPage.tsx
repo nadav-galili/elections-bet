@@ -9,6 +9,7 @@ import {
 } from '@/lib/admin/hooks';
 import { apiErrorMessage, formatDateTime } from '@/lib/admin/format';
 import type { AdminGroup } from '@/lib/admin/types';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -97,7 +98,7 @@ function MembersDialog({
                 >
                   <span className="text-base font-medium">
                     {m.user.displayName ?? '—'}
-                    {isAdmin && <span className="mr-2 text-sm text-muted-foreground">(מנהל)</span>}
+                    {isAdmin && <span className="ms-2 text-sm text-muted-foreground">(מנהל)</span>}
                   </span>
                   {mode === 'reassign' ? (
                     <Button
@@ -138,7 +139,7 @@ function MembersDialog({
 }
 
 export default function AdminGroupsPage() {
-  const { data, isLoading, isError } = useAllGroups();
+  const { data, isLoading, isError, refetch } = useAllGroups();
   const deleteGroup = useDeleteGroupAdmin();
   const [confirmDelete, setConfirmDelete] = useState<AdminGroup | null>(null);
   const [reassign, setReassign] = useState<AdminGroup | null>(null);
@@ -148,24 +149,18 @@ export default function AdminGroupsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-extrabold tracking-tight">ניהול קבוצות</h1>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin" />
-        </div>
-      )}
+      {isLoading && <LoadingState label="טוען קבוצות…" />}
 
       {isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          שגיאה בטעינת הקבוצות. נסו לרענן את הדף.
-        </div>
+        <ErrorState
+          title="שגיאה בטעינת הקבוצות"
+          description="נסו לרענן את הדף."
+          onRetry={() => refetch()}
+        />
       )}
 
       {!isLoading && !isError && data && data.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-md border border-dashed py-16 text-center text-muted-foreground">
-          <UsersRound className="size-8" />
-          <p>עדיין לא נוצרו קבוצות.</p>
-        </div>
+        <EmptyState icon={UsersRound} title="עדיין לא נוצרו קבוצות." />
       )}
 
       {!isLoading && !isError && data && data.length > 0 && (
@@ -176,7 +171,7 @@ export default function AdminGroupsPage() {
               <TableHead>מנהל</TableHead>
               <TableHead>חברים</TableHead>
               <TableHead>נוצרה</TableHead>
-              <TableHead className="text-left">פעולות</TableHead>
+              <TableHead className="text-end">פעולות</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -186,7 +181,7 @@ export default function AdminGroupsPage() {
                 <TableCell>{group.admin?.displayName ?? '—'}</TableCell>
                 <TableCell>{group.memberCount}</TableCell>
                 <TableCell>{formatDateTime(group.createdAt)}</TableCell>
-                <TableCell className="text-left">
+                <TableCell className="text-end">
                   <div className="flex justify-start gap-1">
                     <Button
                       variant="ghost"

@@ -9,18 +9,19 @@ export function apiErrorMessage(err: unknown, fallback = 'הפעולה נכשל�
   return fallback;
 }
 
-/** Format an ISO timestamp for display in the admin tables (Hebrew locale). */
-export function formatDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return new Intl.DateTimeFormat('he-IL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(d);
-}
+/**
+ * Format an ISO timestamp for display in the admin tables (he-IL, Asia/Jerusalem).
+ * Delegates to the shared `@/lib/time` formatter so all admin times render in
+ * Israel time, consistent with the player-facing UI.
+ */
+export { formatDateTime } from '@/lib/time';
 
-/** Convert an ISO timestamp into a value usable by <input type="datetime-local">. */
+/**
+ * Convert an ISO timestamp into a value usable by <input type="datetime-local">.
+ * NOTE: datetime-local inputs are inherently in the browser's local timezone;
+ * the admin is expected to enter/read these in their own local time. Display of
+ * saved values elsewhere goes through `formatDateTime` (pinned to Israel time).
+ */
 export function toDateTimeLocal(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);

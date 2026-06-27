@@ -57,6 +57,7 @@ describe('GroupLeaderboardSection', () => {
     renderWithProviders(<GroupLeaderboardSection groupId="g1" />);
 
     expect(await screen.findByText('הטבלה תיחשף לאחר פרסום התוצאות')).toBeInTheDocument();
+    expect(screen.getByText(/יפרסם תוצאות \(מדגם או סופיות\)/)).toBeInTheDocument();
     expect(screen.getByText(/4 חברים הגישו תחזית/)).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });

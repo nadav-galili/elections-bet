@@ -9,6 +9,7 @@ import {
 } from '@/lib/admin/hooks';
 import type { AdminUser, Role } from '@/lib/admin/types';
 import { apiErrorMessage } from '@/lib/admin/format';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -134,7 +135,7 @@ function UserRow({ user }: { user: AdminUser }) {
           <Badge variant="outline">פעיל</Badge>
         )}
       </TableCell>
-      <TableCell className="text-left">
+      <TableCell className="text-end">
         <div className="flex justify-start gap-1">
           <Button
             variant="ghost"
@@ -218,7 +219,7 @@ export default function AdminUsersPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data, isLoading, isError } = useUsers(q);
+  const { data, isLoading, isError, refetch } = useUsers(q);
 
   return (
     <div className="space-y-6">
@@ -232,24 +233,18 @@ export default function AdminUsersPage() {
         aria-label="חיפוש משתמשים"
       />
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin" />
-        </div>
-      )}
+      {isLoading && <LoadingState label="טוען משתמשים…" />}
 
       {isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          שגיאה בטעינת המשתמשים. נסו לרענן את הדף.
-        </div>
+        <ErrorState
+          title="שגיאה בטעינת המשתמשים"
+          description="נסו לרענן את הדף."
+          onRetry={() => refetch()}
+        />
       )}
 
       {!isLoading && !isError && data && data.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-md border border-dashed py-16 text-center text-muted-foreground">
-          <Users className="size-8" />
-          <p>לא נמצאו משתמשים.</p>
-        </div>
+        <EmptyState icon={Users} title="לא נמצאו משתמשים." />
       )}
 
       {!isLoading && !isError && data && data.length > 0 && (
@@ -260,7 +255,7 @@ export default function AdminUsersPage() {
               <TableHead>אימייל</TableHead>
               <TableHead>תפקיד</TableHead>
               <TableHead>סטטוס</TableHead>
-              <TableHead className="text-left">פעולות</TableHead>
+              <TableHead className="text-end">פעולות</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

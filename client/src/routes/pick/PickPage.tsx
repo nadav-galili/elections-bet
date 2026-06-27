@@ -1,11 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, ArrowRight, Check, Loader2, Lock } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, ArrowRight, Check, FileX, Loader2, Lock } from 'lucide-react';
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { usePick, usePlayerElection, useSavePick } from '@/lib/pick/hooks';
 import type { Pick, PlayerElectionDetail } from '@/lib/pick/types';
+import { Countdown } from '@/components/Countdown';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
+import { useCountdown } from '@/lib/time';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -180,48 +183,6 @@ function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pi
   );
 }
 
-/** A live clock that ticks every second until `lockAt`, then flips `locked`. */
-function useTimeLeft(lockAt: string | null) {
-  const target = lockAt ? new Date(lockAt).getTime() : null;
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (target == null) return;
-    // Already past the lock — no need to tick.
-    if (target - Date.now() <= 0) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [target]);
-
-  const msLeft = target == null ? null : target - now;
-  const locked = msLeft != null && msLeft <= 0;
-  return { msLeft, locked };
-}
-
-function formatCountdown(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const days = Math.floor(total / 86400);
-  const hours = Math.floor((total % 86400) / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const clock = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-  return days > 0 ? `${days} ימים ${clock}` : clock;
-}
-
-function LockCountdown({ lockAt, msLeft }: { lockAt: string | null; msLeft: number | null }) {
-  if (!lockAt) {
-    return <p className="text-sm text-muted-foreground">טרם נקבע מועד נעילה</p>;
-  }
-  return (
-    <p className="text-sm text-muted-foreground" aria-live="polite">
-      התחזיות ננעלות בעוד{' '}
-      <span className="font-mono font-semibold tabular-nums">{formatCountdown(msLeft ?? 0)}</span> ·{' '}
-      {new Date(lockAt).toLocaleString('he-IL')}
-    </p>
-  );
-}
-
 function FrozenView({ election, pick }: { election: PlayerElectionDetail; pick: Pick | null }) {
   const parties = [...election.parties].sort((a, b) => a.displayOrder - b.displayOrder);
   const byParty = new Map<string, number>();
@@ -257,7 +218,7 @@ function FrozenView({ election, pick }: { election: PlayerElectionDetail; pick: 
             </TableBody>
           </Table>
         ) : (
-          <p className="py-6 text-center text-muted-foreground">לא הגשת תחזית</p>
+          <EmptyState icon={FileX} title="לא הגשת תחזית" />
         )}
       </CardContent>
     </Card>
@@ -274,7 +235,12 @@ export default function PickPage() {
   const election = electionQuery.data;
 
   // Reactive lock: ticks each second so an open page auto-freezes when lockAt passes.
-  const { msLeft, locked } = useTimeLeft(election?.lockAt ?? null);
+  const { ended: locked } = useCountdown(election?.lockAt ?? null);
+
+  const handleRetry = () => {
+    electionQuery.refetch();
+    pickQuery.refetch();
+  };
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -288,17 +254,14 @@ export default function PickPage() {
         <h1 className="text-2xl font-extrabold tracking-tight">{election?.nameHe ?? 'תחזית'}</h1>
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin" />
-        </div>
-      )}
+      {isLoading && <LoadingState />}
 
       {!isLoading && isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          שגיאה בטעינת התחזית.
-        </div>
+        <ErrorState
+          title="שגיאה בטעינת התחזית"
+          description="נסו לרענן את הדף."
+          onRetry={handleRetry}
+        />
       )}
 
       {!isLoading && !isError && election && (
@@ -307,7 +270,7 @@ export default function PickPage() {
             <FrozenView election={election} pick={pickQuery.data ?? null} />
           ) : (
             <div className="space-y-4">
-              <LockCountdown lockAt={election.lockAt} msLeft={msLeft} />
+              <Countdown to={election.lockAt} />
               <PickForm election={election} pick={pickQuery.data ?? null} />
             </div>
           )}

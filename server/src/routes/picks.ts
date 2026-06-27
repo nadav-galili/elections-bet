@@ -5,6 +5,7 @@ import { HttpError } from '../middleware/error';
 import { validate } from '../middleware/validate';
 import { requireAuthMw, type AuthedRequest } from '../middleware/auth';
 import { upsertPickSchema } from '../lib/validation/pick';
+import { isLocked } from '../lib/time';
 
 const router = Router();
 
@@ -74,7 +75,7 @@ router.put('/elections/:id/pick', validate(upsertPickSchema), async (req, res) =
   if (!election) throw new HttpError(404, 'הבחירות לא נמצאו');
 
   // Edit-until-lock: once now >= lockAt the pick is frozen.
-  if (election.lockAt && new Date() >= election.lockAt) {
+  if (isLocked(election.lockAt)) {
     throw new HttpError(409, 'התחזיות ננעלו');
   }
 

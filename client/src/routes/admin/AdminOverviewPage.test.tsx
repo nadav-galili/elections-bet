@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import type { AdminOverview } from '@/lib/admin/types';
@@ -35,5 +36,26 @@ describe('AdminOverviewPage', () => {
     expect(screen.getByText('21')).toBeInTheDocument();
     expect(screen.getByText('50%')).toBeInTheDocument();
     expect(screen.getByText('הכנסת ה-26')).toBeInTheDocument();
+  });
+
+  it('shows an error state with a retry that refetches', async () => {
+    get.mockRejectedValueOnce(new Error('boom'));
+
+    renderWithProviders(<AdminOverviewPage />, { initialEntries: ['/admin/overview'] });
+
+    expect(await screen.findByText('שגיאה בטעינת הנתונים')).toBeInTheDocument();
+
+    const overview: AdminOverview = {
+      users: 1,
+      groups: 0,
+      elections: 0,
+      activeElection: null,
+      picksSubmitted: 0,
+      participationRate: 0,
+    };
+    get.mockResolvedValueOnce({ data: overview });
+    await userEvent.click(screen.getByRole('button', { name: 'נסו שוב' }));
+
+    await waitFor(() => expect(screen.getByText('משתמשים')).toBeInTheDocument());
   });
 });

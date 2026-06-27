@@ -1,9 +1,9 @@
-import { AlertCircle, Loader2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { SignInButton, useAuth } from '@clerk/react';
 import { useJoinGroup } from '@/lib/groups/hooks';
 import { Button } from '@/components/ui/button';
+import { ErrorState, LoadingState } from '@/components/states';
 
 export default function JoinPage() {
   const { token } = useParams<{ token: string }>();
@@ -25,11 +25,7 @@ export default function JoinPage() {
 
   // Clerk still resolving the session.
   if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
-        <Loader2 className="size-6 animate-spin" />
-      </div>
-    );
+    return <LoadingState label="בודק חיבור…" />;
   }
 
   // Signed out — prompt for sign-in, then the effect will run on next render.
@@ -48,25 +44,20 @@ export default function JoinPage() {
   // Join failed.
   if (joinGroup.isError) {
     return (
-      <div className="mx-auto max-w-md space-y-4 py-16 text-center">
-        <div className="flex items-center justify-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          ההצטרפות לקבוצה נכשלה. ייתכן שהקישור אינו תקין.
+      <div className="mx-auto max-w-md space-y-4 py-16">
+        <ErrorState
+          title="ההצטרפות לקבוצה נכשלה"
+          description="ייתכן שהקישור אינו תקין או שפג תוקפו."
+        />
+        <div className="text-center">
+          <Button asChild variant="outline">
+            <Link to="/groups">חזרה לקבוצות</Link>
+          </Button>
         </div>
-        <Button asChild variant="outline">
-          <Link to="/groups">חזרה לקבוצות</Link>
-        </Button>
       </div>
     );
   }
 
   // Signed in and joining.
-  return (
-    <div className="flex items-center justify-center py-16">
-      <div className="text-center">
-        <Loader2 className="mx-auto size-6 animate-spin" />
-        <p className="mt-4 text-lg">מצטרף לקבוצה...</p>
-      </div>
-    </div>
-  );
+  return <LoadingState label="מצטרף לקבוצה…" />;
 }

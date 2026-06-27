@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useCreateParty, useUpdateParty } from '@/lib/admin/hooks';
 import { blocLabel } from '@/lib/admin/format';
+import { getApiErrorMessage } from '@/lib/utils';
 import type { Bloc, ElectionDetail, Party } from '@/lib/admin/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -181,8 +182,8 @@ export function PartyDialog({
 
             {mutation.isError && (
               <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                <AlertCircle className="size-4" />
-                שמירת המפלגה נכשלה. נסו שוב.
+                <AlertCircle className="size-4 shrink-0" />
+                {getApiErrorMessage(mutation.error, 'שמירת המפלגה נכשלה. נסו שוב.')}
               </div>
             )}
 

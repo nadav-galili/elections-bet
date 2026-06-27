@@ -47,9 +47,8 @@ describe('JoinPage', () => {
 
     renderJoin();
 
-    expect(
-      await screen.findByText('ההצטרפות לקבוצה נכשלה. ייתכן שהקישור אינו תקין.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('ההצטרפות לקבוצה נכשלה')).toBeInTheDocument();
+    expect(screen.getByText('ייתכן שהקישור אינו תקין או שפג תוקפו.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'חזרה לקבוצות' })).toBeInTheDocument();
   });
 });

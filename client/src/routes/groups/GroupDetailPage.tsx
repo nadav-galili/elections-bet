@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Copy, Loader2, Trash2, Trophy, Users } from 'lucide-react';
+import { AlertCircle, Check, Copy, Trash2, Trophy, Users } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -14,6 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { GroupLeaderboardSection } from '@/routes/leaderboard/GroupLeaderboardSection';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
+import { Countdown } from '@/components/Countdown';
+import { formatDate } from '@/lib/time';
 
 function inviteLink(token: string) {
   return `${window.location.origin}/join/${token}`;
@@ -181,7 +184,7 @@ function MemberList({
 export default function GroupDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data, isLoading, isError } = useGroup(id);
+  const { data, isLoading, isError, refetch } = useGroup(id);
 
   const deleteGroup = useDeleteGroup();
   const leaveGroup = useLeaveGroup();
@@ -208,19 +211,16 @@ export default function GroupDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
-        <Loader2 className="size-6 animate-spin" />
-      </div>
-    );
+    return <LoadingState label="טוען קבוצה…" />;
   }
 
   if (isError || !data) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        <AlertCircle className="size-4" />
-        שגיאה בטעינת הקבוצה. נסו לרענן את הדף.
-      </div>
+      <ErrorState
+        title="שגיאה בטעינת הקבוצה"
+        description="נסו לרענן את הדף."
+        onRetry={() => refetch()}
+      />
     );
   }
 
@@ -271,7 +271,10 @@ export default function GroupDetailPage() {
       {copyError && (
         <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           <AlertCircle className="size-4" />
-          העתקת הקישור נכשלה. העתיקו ידנית: {copyError}
+          העתקת הקישור נכשלה. העתיקו ידנית:{' '}
+          <span dir="ltr" className="font-mono [unicode-bidi:isolate]">
+            {copyError}
+          </span>
         </div>
       )}
 
@@ -336,8 +339,9 @@ export default function GroupDetailPage() {
           )}
 
           {data.privacyPhase === 'pre_reveal' && (
-            <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-              התחזיות מוסתרות עד מועד החשיפה — מוצג רק מי הגיש.
+            <div className="space-y-3 rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+              <p>התחזיות מוסתרות עד מועד החשיפה — מוצג רק מי הגיש.</p>
+              <Countdown to={data.activeElection.lockAt} />
             </div>
           )}
 
@@ -346,15 +350,21 @@ export default function GroupDetailPage() {
               <CardTitle>חברים</CardTitle>
             </CardHeader>
             <CardContent>
-              <MemberList data={data} isAdmin={isAdmin} onRemoveMember={setConfirmRemove} />
+              {data.memberships.length === 0 ? (
+                <EmptyState icon={Users} title="אין עדיין חברים בקבוצה זו." />
+              ) : (
+                <MemberList data={data} isAdmin={isAdmin} onRemoveMember={setConfirmRemove} />
+              )}
             </CardContent>
           </Card>
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Users className="size-3" />
             <span>
-              {data._count?.memberships ?? data.memberships.length} חברים • נוצר{' '}
-              {new Date(data.createdAt).toLocaleDateString('he-IL')}
+              <span className="tabular-nums">
+                {data._count?.memberships ?? data.memberships.length}
+              </span>{' '}
+              חברים • נוצר <span className="tabular-nums">{formatDate(data.createdAt)}</span>
             </span>
           </div>
         </>

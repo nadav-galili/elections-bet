@@ -5,6 +5,7 @@ import { HttpError } from '../middleware/error';
 import { validate } from '../middleware/validate';
 import { requireAuthMw, AuthedRequest } from '../middleware/auth';
 import { createGroupSchema, updateGroupSchema } from '../lib/validation/group';
+import { isRevealed } from '../lib/time';
 
 const router = Router();
 
@@ -104,8 +105,7 @@ router.get('/:id', async (req, res) => {
   // Fail closed: post-reveal requires a real revealAt that is now or in the
   // past. revealAt null or in the future ⇒ pre-reveal (never leak mandates).
   const now = new Date();
-  const hasReveal = activeElection?.revealAt != null;
-  const isPostReveal = hasReveal && (activeElection!.revealAt as Date) <= now;
+  const isPostReveal = isRevealed(activeElection?.revealAt ?? null, now);
   const privacyPhase = !activeElection
     ? ('no_active' as const)
     : isPostReveal

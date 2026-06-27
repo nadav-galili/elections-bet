@@ -1,13 +1,6 @@
-import {
-  AlertCircle,
-  ClipboardCheck,
-  Loader2,
-  Percent,
-  Users,
-  UsersRound,
-  Vote,
-} from 'lucide-react';
+import { ClipboardCheck, Percent, Users, UsersRound, Vote } from 'lucide-react';
 import { useOverview } from '@/lib/admin/hooks';
+import { ErrorState, LoadingState } from '@/components/states';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function StatCard({
@@ -33,23 +26,20 @@ function StatCard({
 }
 
 export default function AdminOverviewPage() {
-  const { data, isLoading, isError } = useOverview();
+  const { data, isLoading, isError, refetch } = useOverview();
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-extrabold tracking-tight">סקירה</h1>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="size-6 animate-spin" />
-        </div>
-      )}
+      {isLoading && <LoadingState label="טוען נתונים…" />}
 
       {isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          שגיאה בטעינת הנתונים. נסו לרענן את הדף.
-        </div>
+        <ErrorState
+          title="שגיאה בטעינת הנתונים"
+          description="נסו לרענן את הדף."
+          onRetry={() => refetch()}
+        />
       )}
 
       {!isLoading && !isError && data && (

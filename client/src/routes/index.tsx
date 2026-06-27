@@ -1,6 +1,7 @@
 import type { RouteObject } from 'react-router-dom';
 import App from '@/App';
 import HomePage from '@/routes/HomePage';
+import NotFoundPage from '@/routes/NotFoundPage';
 import RequireSuperAdmin from '@/components/admin/RequireSuperAdmin';
 import AdminLayout from '@/routes/admin/AdminLayout';
 import AdminElectionsPage from '@/routes/admin/AdminElectionsPage';
@@ -39,6 +40,7 @@ export const routes: RouteObject[] = [
         ],
       },
       ...groupsRoutes,
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ];

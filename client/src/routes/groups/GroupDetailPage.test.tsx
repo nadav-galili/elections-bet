@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/renderWithProviders';
@@ -145,5 +146,58 @@ describe('GroupDetailPage', () => {
     renderDetail();
     await screen.findByText('המשפחה');
     expect(screen.queryByRole('button', { name: 'מחק קבוצה' })).not.toBeInTheDocument();
+  });
+
+  it('shows an empty state when the group has no members', async () => {
+    const data: GroupDetail = {
+      id: 'g1',
+      nameHe: 'המשפחה',
+      adminUserId: 'admin-1',
+      inviteToken: 'tok-abc',
+      createdAt: '2026-06-01T00:00:00.000Z',
+      currentUserId: 'admin-1',
+      privacyPhase: 'no_active',
+      activeElection: null,
+      memberships: [],
+    };
+    get.mockResolvedValueOnce({ data });
+
+    renderDetail();
+
+    expect(await screen.findByText('אין עדיין חברים בקבוצה זו.')).toBeInTheDocument();
+  });
+
+  it('shows an error state and refetches on retry', async () => {
+    const user = userEvent.setup();
+    get.mockRejectedValueOnce(new Error('boom'));
+
+    renderDetail();
+
+    expect(await screen.findByText('שגיאה בטעינת הקבוצה')).toBeInTheDocument();
+
+    get.mockResolvedValueOnce({
+      data: {
+        id: 'g1',
+        nameHe: 'המשפחה',
+        adminUserId: 'admin-1',
+        inviteToken: 'tok-abc',
+        createdAt: '2026-06-01T00:00:00.000Z',
+        currentUserId: 'admin-1',
+        privacyPhase: 'no_active',
+        activeElection: null,
+        memberships: [
+          {
+            id: 'm1',
+            userId: 'admin-1',
+            joinedAt: '2026-06-01T00:00:00.000Z',
+            user: { id: 'admin-1', displayName: 'דנה', avatarUrl: null },
+          },
+        ],
+      } satisfies GroupDetail,
+    });
+
+    await user.click(screen.getByRole('button', { name: 'נסו שוב' }));
+
+    expect(await screen.findByText('המשפחה')).toBeInTheDocument();
   });
 });

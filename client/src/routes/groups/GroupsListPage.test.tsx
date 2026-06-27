@@ -46,6 +46,32 @@ describe('GroupsListPage', () => {
     await waitFor(() => expect(screen.getByText('עדיין לא נוצרו קבוצות.')).toBeInTheDocument());
   });
 
+  it('shows an error state and refetches on retry', async () => {
+    const user = userEvent.setup();
+    get.mockRejectedValueOnce(new Error('boom'));
+
+    renderWithProviders(<GroupsListPage />, { initialEntries: ['/groups'] });
+
+    expect(await screen.findByText('שגיאה בטעינת הקבוצות')).toBeInTheDocument();
+
+    get.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'g1',
+          nameHe: 'המשפחה',
+          adminUserId: 'u1',
+          inviteToken: 'tok-abc',
+          createdAt: '2026-06-01T00:00:00.000Z',
+          _count: { memberships: 4 },
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'נסו שוב' }));
+
+    expect(await screen.findByRole('link', { name: 'המשפחה' })).toBeInTheDocument();
+  });
+
   it('copies the /join/<token> URL when the invite button is clicked', async () => {
     // userEvent.setup() installs its own navigator.clipboard stub, so spy AFTER setup.
     const user = userEvent.setup();
