@@ -10,25 +10,34 @@ vi.mock('@clerk/express', () => ({
 }));
 
 // Prisma is stubbed per-test. requireSuperAdmin reads prisma.user.findUnique
-// for the role; the route handlers read election/party.
-vi.mock('../../db', () => ({
-  prisma: {
-    user: { findUnique: vi.fn() },
-    election: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
+// for the role; the route handlers read election/party. election/party/score are
+// shared so the interactive $transaction callback receives the same mock fns the
+// tests assert against (same pattern as picks.test.ts).
+vi.mock('../../db', () => {
+  const election = {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+  const party = {
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findFirst: vi.fn(),
+  };
+  const score = { upsert: vi.fn() };
+  return {
+    prisma: {
+      user: { findUnique: vi.fn() },
+      election,
+      party,
+      score,
+      $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb({ election, party, score })),
     },
-    party: {
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      findFirst: vi.fn(),
-    },
-  },
-}));
+  };
+});
 
 import { createApp } from '../../app';
 import { prisma } from '../../db';
@@ -40,6 +49,8 @@ const mocked = prisma as unknown as {
     ReturnType<typeof vi.fn>
   >;
   party: Record<'create' | 'update' | 'delete' | 'findFirst', ReturnType<typeof vi.fn>>;
+  score: Record<'upsert', ReturnType<typeof vi.fn>>;
+  $transaction: ReturnType<typeof vi.fn>;
 };
 
 function asAdmin(): void {
@@ -146,5 +157,173 @@ describe('admin elections — validation & not-found', () => {
       .patch('/api/admin/elections/e1/parties/nope')
       .send({ nameHe: 'שם חדש' });
     expect(res.status).toBe(404);
+  });
+});
+
+describe('admin elections — PATCH /:id/results', () => {
+  it('sets actual mandates for every party (200)', async () => {
+    asAdmin();
+    mocked.election.findUnique
+      .mockResolvedValueOnce({ id: 'e1', parties: [{ id: 'p1' }, { id: 'p2' }] })
+      .mockResolvedValueOnce({ id: 'e1', nameHe: 'בחירות', parties: [] });
+    mocked.party.update.mockResolvedValue({});
+
+    const res = await request(createApp())
+      .patch('/api/admin/elections/e1/results')
+      .send({
+        entries: [
+          { partyId: 'p1', actualMandates: 60 },
+          { partyId: 'p2', actualMandates: 60 },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(mocked.party.update).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns 400 when the sum is not 120', async () => {
+    asAdmin();
+    const res = await request(createApp())
+      .patch('/api/admin/elections/e1/results')
+      .send({
+        entries: [
+          { partyId: 'p1', actualMandates: 60 },
+          { partyId: 'p2', actualMandates: 50 },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('שגיאת אימות');
+  });
+
+  it('returns 400 for an illegal value (2 mandates)', async () => {
+    asAdmin();
+    const res = await request(createApp())
+      .patch('/api/admin/elections/e1/results')
+      .send({
+        entries: [
+          { partyId: 'p1', actualMandates: 2 },
+          { partyId: 'p2', actualMandates: 118 },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('שגיאת אימות');
+  });
+
+  it('returns 400 when the party set does not match the election', async () => {
+    asAdmin();
+    mocked.election.findUnique.mockResolvedValue({
+      id: 'e1',
+      parties: [{ id: 'p1' }, { id: 'p2' }],
+    });
+
+    const res = await request(createApp())
+      .patch('/api/admin/elections/e1/results')
+      .send({
+        entries: [{ partyId: 'p1', actualMandates: 120 }],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('התוצאות חייבות לכלול את כל המפלגות בבחירות');
+  });
+
+  it('403 for a non-admin user', async () => {
+    asUser();
+    const res = await request(createApp())
+      .patch('/api/admin/elections/e1/results')
+      .send({
+        entries: [
+          { partyId: 'p1', actualMandates: 60 },
+          { partyId: 'p2', actualMandates: 60 },
+        ],
+      });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('admin elections — POST /:id/publish', () => {
+  const electionWithResults = (picksCount: number) => ({
+    id: 'e1',
+    parties: [
+      { id: 'p1', bloc: 'A', actualMandates: 61 },
+      { id: 'p2', bloc: 'B', actualMandates: 59 },
+    ],
+    picks: Array.from({ length: picksCount }, (_, i) => ({
+      userId: `u${i}`,
+      entries: [
+        { partyId: 'p1', mandates: 61 },
+        { partyId: 'p2', mandates: 59 },
+      ],
+    })),
+  });
+
+  it('returns 400 when results are missing/invalid', async () => {
+    asAdmin();
+    mocked.election.findUnique.mockResolvedValue({
+      id: 'e1',
+      parties: [
+        { id: 'p1', bloc: 'A', actualMandates: null },
+        { id: 'p2', bloc: 'B', actualMandates: 59 },
+      ],
+      picks: [],
+    });
+
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/publish')
+      .send({ status: 'PROVISIONAL' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('יש להזין תוצאות תקינות (סכום 120) לפני פרסום');
+  });
+
+  it('PROVISIONAL: computes & upserts a Score per pick and sets status', async () => {
+    asAdmin();
+    mocked.election.findUnique
+      .mockResolvedValueOnce(electionWithResults(3))
+      .mockResolvedValueOnce({ id: 'e1', resultsStatus: 'PROVISIONAL', parties: [] });
+    mocked.score.upsert.mockResolvedValue({});
+    mocked.election.update.mockResolvedValue({});
+
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/publish')
+      .send({ status: 'PROVISIONAL' });
+
+    expect(res.status).toBe(200);
+    expect(mocked.score.upsert).toHaveBeenCalledTimes(3);
+    expect(mocked.election.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ resultsStatus: 'PROVISIONAL' }),
+      }),
+    );
+  });
+
+  it('FINAL: recomputes & sets status FINAL', async () => {
+    asAdmin();
+    mocked.election.findUnique
+      .mockResolvedValueOnce(electionWithResults(2))
+      .mockResolvedValueOnce({ id: 'e1', resultsStatus: 'FINAL', parties: [] });
+    mocked.score.upsert.mockResolvedValue({});
+    mocked.election.update.mockResolvedValue({});
+
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/publish')
+      .send({ status: 'FINAL' });
+
+    expect(res.status).toBe(200);
+    expect(mocked.score.upsert).toHaveBeenCalledTimes(2);
+    expect(mocked.election.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ resultsStatus: 'FINAL' }),
+      }),
+    );
+  });
+
+  it('403 for a non-admin user', async () => {
+    asUser();
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/publish')
+      .send({ status: 'PROVISIONAL' });
+    expect(res.status).toBe(403);
   });
 });

@@ -8,6 +8,8 @@ import {
   createPartySchema,
   updatePartySchema,
 } from '../../lib/validation/election';
+import { setResultsSchema, publishSchema } from '../../lib/validation/results';
+import { computeScore, type ResultParty } from '../../lib/scoring';
 
 const router = Router();
 
@@ -82,6 +84,118 @@ router.delete('/:id/parties/:partyId', async (req, res) => {
   if (!party) throw new HttpError(404, 'הרשימה לא נמצאה');
   await prisma.party.delete({ where: { id: partyId } });
   res.status(204).end();
+});
+
+// PATCH /api/admin/elections/:id/results — set each party's actual mandates.
+// Does NOT change resultsStatus (that happens at publish time).
+router.patch('/:id/results', validate(setResultsSchema), async (req, res) => {
+  const id = String(req.params.id);
+  const entries = req.body.entries as { partyId: string; actualMandates: number }[];
+
+  const election = await prisma.election.findUnique({
+    where: { id },
+    include: { parties: { select: { id: true } } },
+  });
+  if (!election) throw new HttpError(404, 'הבחירות לא נמצאו');
+
+  // The results must cover EXACTLY the election's party list — same check as picks.
+  const electionPartyIds = new Set(election.parties.map((p) => p.id));
+  const entryPartyIds = new Set(entries.map((e) => e.partyId));
+  const sameSet =
+    electionPartyIds.size === entryPartyIds.size &&
+    [...entryPartyIds].every((pid) => electionPartyIds.has(pid));
+  if (!sameSet) {
+    throw new HttpError(400, 'התוצאות חייבות לכלול את כל המפלגות בבחירות');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const e of entries) {
+      await tx.party.update({
+        where: { id: e.partyId },
+        data: { actualMandates: e.actualMandates },
+      });
+    }
+  });
+
+  const updated = await prisma.election.findUnique({
+    where: { id },
+    include: { parties: { orderBy: { displayOrder: 'asc' } } },
+  });
+  res.json(updated);
+});
+
+// POST /api/admin/elections/:id/publish — recompute & persist Scores, set status.
+// Idempotent: re-running upserts Scores and re-applies the chosen status.
+// This is the ONLY writer of Score (privacy: no player-facing scores endpoint).
+router.post('/:id/publish', validate(publishSchema), async (req, res) => {
+  const id = String(req.params.id);
+  const status = req.body.status as 'PROVISIONAL' | 'FINAL';
+
+  const election = await prisma.election.findUnique({
+    where: { id },
+    include: {
+      parties: { select: { id: true, bloc: true, actualMandates: true } },
+      picks: {
+        select: {
+          userId: true,
+          entries: { select: { partyId: true, mandates: true } },
+        },
+      },
+    },
+  });
+  if (!election) throw new HttpError(404, 'הבחירות לא נמצאו');
+
+  // Results must be fully entered and valid (every party set, sum === 120).
+  const allSet = election.parties.every((p) => p.actualMandates != null);
+  const total = election.parties.reduce((sum, p) => sum + (p.actualMandates ?? 0), 0);
+  if (!allSet || total !== 120) {
+    throw new HttpError(400, 'יש להזין תוצאות תקינות (סכום 120) לפני פרסום');
+  }
+
+  const resultParties: ResultParty[] = election.parties.map((p) => ({
+    id: p.id,
+    bloc: p.bloc,
+    actualMandates: p.actualMandates as number,
+  }));
+
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    for (const pick of election.picks) {
+      const predicted = new Map<string, number>(pick.entries.map((e) => [e.partyId, e.mandates]));
+      const breakdown = computeScore(predicted, resultParties);
+      await tx.score.upsert({
+        where: { userId_electionId: { userId: pick.userId, electionId: id } },
+        create: {
+          userId: pick.userId,
+          electionId: id,
+          base: breakdown.base,
+          bonusLargest: breakdown.bonusLargest,
+          bonusThreshold: breakdown.bonusThreshold,
+          bonusBloc: breakdown.bonusBloc,
+          total: breakdown.total,
+          computedAt: now,
+        },
+        update: {
+          base: breakdown.base,
+          bonusLargest: breakdown.bonusLargest,
+          bonusThreshold: breakdown.bonusThreshold,
+          bonusBloc: breakdown.bonusBloc,
+          total: breakdown.total,
+          computedAt: now,
+        },
+      });
+    }
+    await tx.election.update({
+      where: { id },
+      data: { resultsStatus: status, resultsPublishedAt: now },
+    });
+  });
+
+  const updated = await prisma.election.findUnique({
+    where: { id },
+    include: { parties: { orderBy: { displayOrder: 'asc' } } },
+  });
+  res.json(updated);
 });
 
 export default router;

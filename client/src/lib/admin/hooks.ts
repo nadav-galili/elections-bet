@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/lib/api';
-import type { Election, ElectionDetail, ElectionInput, Party, PartyInput } from '@/lib/admin/types';
+import type {
+  Election,
+  ElectionDetail,
+  ElectionInput,
+  Party,
+  PartyInput,
+  ResultEntry,
+  ResultsStatus,
+} from '@/lib/admin/types';
 
 /** Query-key factory — keep these consistent across hooks and tests. */
 export const adminKeys = {
@@ -106,6 +114,34 @@ export function useDeleteParty(electionId: string) {
       void queryClient.invalidateQueries({
         queryKey: adminKeys.election(electionId),
       });
+    },
+  });
+}
+
+export function useSetResults(electionId: string) {
+  const apiClient = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (entries: ResultEntry[]) =>
+      (await apiClient.patch(`/api/admin/elections/${electionId}/results`, { entries }))
+        .data as ElectionDetail,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: adminKeys.election(electionId) });
+      void queryClient.invalidateQueries({ queryKey: adminKeys.elections });
+    },
+  });
+}
+
+export function usePublishResults(electionId: string) {
+  const apiClient = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (status: Exclude<ResultsStatus, 'NONE'>) =>
+      (await apiClient.post(`/api/admin/elections/${electionId}/publish`, { status }))
+        .data as Election,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: adminKeys.election(electionId) });
+      void queryClient.invalidateQueries({ queryKey: adminKeys.elections });
     },
   });
 }

@@ -1,6 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, ArrowRight, Check, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {
+  AlertCircle,
+  ArrowRight,
+  Check,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
@@ -8,10 +17,19 @@ import {
   useDeleteElection,
   useDeleteParty,
   useElection,
+  usePublishResults,
+  useSetResults,
   useUpdateElection,
 } from '@/lib/admin/hooks';
-import { blocLabel, fromDateTimeLocal, toDateTimeLocal } from '@/lib/admin/format';
+import {
+  blocLabel,
+  formatDateTime,
+  fromDateTimeLocal,
+  resultsStatusLabels,
+  toDateTimeLocal,
+} from '@/lib/admin/format';
 import type { ElectionDetail, Party } from '@/lib/admin/types';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -320,6 +338,263 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
   );
 }
 
+const RESULTS_TOTAL = 120;
+
+const resultsSchema = z
+  .object({
+    entries: z.array(
+      z.object({
+        partyId: z.string(),
+        actualMandates: z.coerce
+          .number({ message: 'יש להזין מספר' })
+          .int('יש להזין מספר שלם')
+          .refine((n) => n === 0 || (n >= 4 && n <= 120), 'יש להזין 0 או 4–120'),
+      }),
+    ),
+  })
+  .superRefine((val, ctx) => {
+    const sum = val.entries.reduce((a, e) => a + (Number(e.actualMandates) || 0), 0);
+    if (sum !== RESULTS_TOTAL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['entries'],
+        message: `סך המנדטים חייב להיות 120 (כעת ${sum})`,
+      });
+    }
+  });
+
+type ResultsFormValues = z.input<typeof resultsSchema>;
+
+/** Big, color-coded indicator of the election's results status. */
+function ResultsStatusBadge({ election }: { election: ElectionDetail }) {
+  const status = election.resultsStatus;
+  // מדגם (provisional) vs סופי (final) must be visually distinct.
+  const prominent =
+    status === 'PROVISIONAL'
+      ? { label: 'מדגם', variant: 'secondary' as const }
+      : status === 'FINAL'
+        ? { label: 'סופי', variant: 'default' as const }
+        : null;
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">סטטוס תוצאות:</span>
+        {prominent ? (
+          <Badge variant={prominent.variant} className="px-4 py-1.5 text-lg font-extrabold">
+            {prominent.label}
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="px-4 py-1.5 text-lg font-bold">
+            {resultsStatusLabels.NONE}
+          </Badge>
+        )}
+      </div>
+      {election.resultsPublishedAt && (
+        <span className="text-sm text-muted-foreground">
+          פורסם: {formatDateTime(election.resultsPublishedAt)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ResultsManager({ election }: { election: ElectionDetail }) {
+  const setResults = useSetResults(election.id);
+  const publishResults = usePublishResults(election.id);
+  const [confirm, setConfirm] = useState<'PROVISIONAL' | 'FINAL' | 'RECOMPUTE' | null>(null);
+
+  const parties = useMemo(
+    () => [...election.parties].sort((a, b) => a.displayOrder - b.displayOrder),
+    [election.parties],
+  );
+
+  const form = useForm<ResultsFormValues>({
+    resolver: zodResolver(resultsSchema),
+    mode: 'onChange',
+    defaultValues: {
+      entries: parties.map((p) => ({ partyId: p.id, actualMandates: p.actualMandates ?? 0 })),
+    },
+  });
+
+  // Re-sync when the fetched election changes (e.g. after save/refetch).
+  useEffect(() => {
+    form.reset({
+      entries: parties.map((p) => ({ partyId: p.id, actualMandates: p.actualMandates ?? 0 })),
+    });
+  }, [parties, form]);
+
+  const watched = form.watch('entries');
+  const sum = watched.reduce((a, e) => a + (Number(e.actualMandates) || 0), 0);
+  const remaining = RESULTS_TOTAL - sum;
+
+  const onSubmit = form.handleSubmit((values) => {
+    setResults.mutate(
+      values.entries.map((e) => ({
+        partyId: e.partyId,
+        actualMandates: Number(e.actualMandates),
+      })),
+      { onSuccess: () => form.reset(values) },
+    );
+  });
+
+  const confirmDescription = (() => {
+    if (confirm === 'PROVISIONAL') {
+      return 'פרסום תוצאות מדגם יחשב את הניקוד ויחשוף אותו לכל המשתתפים. ניתן יהיה לעדכן בהמשך לתוצאות סופיות.';
+    }
+    if (confirm === 'FINAL') {
+      return 'פרסום תוצאות סופיות יחשב את הניקוד הסופי ויחשוף אותו לכל המשתתפים.';
+    }
+    if (confirm === 'RECOMPUTE') {
+      return 'הניקוד יחושב מחדש על בסיס התוצאות הנוכחיות ויעודכן לכל המשתתפים.';
+    }
+    return undefined;
+  })();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>תוצאות הבחירות</CardTitle>
+        <CardDescription>הזינו את חלוקת המנדטים בפועל ופרסמו לחישוב הניקוד.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <ResultsStatusBadge election={election} />
+
+        {parties.length === 0 ? (
+          <p className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+            יש להוסיף מפלגות לפני הזנת תוצאות.
+          </p>
+        ) : (
+          <Form {...form}>
+            <form onSubmit={onSubmit} className="space-y-5" noValidate>
+              <div className="space-y-4">
+                {parties.map((party, index) => (
+                  <FormField
+                    key={party.id}
+                    control={form.control}
+                    name={`entries.${index}.actualMandates`}
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between gap-4">
+                        <FormLabel className="text-base font-medium">{party.nameHe}</FormLabel>
+                        <div className="grid gap-1">
+                          <FormControl>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              max={120}
+                              className="w-24"
+                              {...field}
+                              value={field.value as number}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </div>
+
+              <div
+                className={`text-lg font-semibold ${
+                  remaining !== 0 ? 'text-destructive' : 'text-muted-foreground'
+                }`}
+                aria-live="polite"
+              >
+                {`נותרו: ${remaining}`}
+              </div>
+
+              {setResults.isError && (
+                <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  <AlertCircle className="size-4" />
+                  שמירת התוצאות נכשלה. נסו שוב.
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3">
+                {setResults.isSuccess && !form.formState.isDirty && (
+                  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Check className="size-4" /> נשמר
+                  </span>
+                )}
+                <Button type="submit" disabled={!form.formState.isValid || setResults.isPending}>
+                  {setResults.isPending && <Loader2 className="size-4 animate-spin" />}
+                  שמירת תוצאות
+                </Button>
+              </div>
+            </form>
+          </Form>
+        )}
+
+        {publishResults.isError && (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <AlertCircle className="size-4" />
+            פרסום התוצאות נכשל. ודאו שהתוצאות תקינות ושלמות.
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-5">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={publishResults.isPending}
+            onClick={() => setConfirm('PROVISIONAL')}
+          >
+            פרסום תוצאות מדגם
+          </Button>
+          <Button
+            type="button"
+            disabled={publishResults.isPending}
+            onClick={() => setConfirm('FINAL')}
+          >
+            פרסום תוצאות סופיות
+          </Button>
+          {election.resultsStatus === 'FINAL' && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={publishResults.isPending}
+              onClick={() => setConfirm('RECOMPUTE')}
+            >
+              <RefreshCw className="size-4" />
+              חישוב מחדש
+            </Button>
+          )}
+        </div>
+      </CardContent>
+
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirm(null);
+        }}
+        title={
+          confirm === 'PROVISIONAL'
+            ? 'פרסום תוצאות מדגם'
+            : confirm === 'RECOMPUTE'
+              ? 'חישוב מחדש'
+              : 'פרסום תוצאות סופיות'
+        }
+        description={confirmDescription}
+        confirmLabel={
+          confirm === 'PROVISIONAL'
+            ? 'פרסום מדגם'
+            : confirm === 'RECOMPUTE'
+              ? 'חישוב מחדש'
+              : 'פרסום סופי'
+        }
+        pending={publishResults.isPending}
+        onConfirm={() => {
+          publishResults.mutate(confirm === 'PROVISIONAL' ? 'PROVISIONAL' : 'FINAL', {
+            onSuccess: () => setConfirm(null),
+          });
+        }}
+      />
+    </Card>
+  );
+}
+
 export default function ElectionDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -369,6 +644,7 @@ export default function ElectionDetailPage() {
         <div className="space-y-6">
           <ConfigForm election={data} />
           <PartiesManager election={data} />
+          <ResultsManager election={data} />
         </div>
       )}
 
