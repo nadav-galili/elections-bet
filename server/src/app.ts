@@ -9,6 +9,7 @@ import picksRouter from './routes/picks';
 import webhooksRouter from './routes/webhooks';
 import adminRouter from './routes/admin';
 import groupsRouter from './routes/groups';
+import leaderboardRouter from './routes/leaderboard';
 
 export function createApp() {
   const app = express();
@@ -40,6 +41,10 @@ export function createApp() {
   app.use('/api', meRouter);
   app.use('/api', picksRouter);
   app.use('/api/groups', groupsRouter);
+  // Mounted after groupsRouter so GET /api/groups/:id/leaderboard falls through
+  // (groupsRouter has no :id/leaderboard route) to here. The /leaderboard suffix
+  // keeps /elections/:id/leaderboard distinct from picksRouter's /elections/:id.
+  app.use('/api', leaderboardRouter);
   app.use('/api/admin', adminRouter);
 
   app.use(notFound);

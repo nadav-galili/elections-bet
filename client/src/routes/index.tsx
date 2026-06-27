@@ -6,6 +6,7 @@ import AdminElectionsPage from '@/routes/admin/AdminElectionsPage';
 import ElectionFormPage from '@/routes/admin/ElectionFormPage';
 import ElectionDetailPage from '@/routes/admin/ElectionDetailPage';
 import PickPage from '@/routes/pick/PickPage';
+import LeaderboardPage from '@/routes/leaderboard/LeaderboardPage';
 import { routes as groupsRoutes } from '@/routes/groups';
 
 export const routes: RouteObject[] = [
@@ -15,6 +16,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: 'elections/:id/pick', element: <PickPage /> },
+      { path: 'leaderboard', element: <LeaderboardPage /> },
       {
         path: 'admin',
         element: <RequireSuperAdmin />,
