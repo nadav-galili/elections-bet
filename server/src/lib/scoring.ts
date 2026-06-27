@@ -60,13 +60,16 @@ export function computeScore(
 
   // --- base ---------------------------------------------------------------
   // base = 240 − Σ |predictedOf − actualMandates|.
-  // For valid inputs (both sums = 120) the total absolute error is ≤ 240, so
-  // base ∈ [0, 240] and CANNOT go negative. We intentionally do not clamp.
+  // For valid inputs (predicted and actual each sum to 120) the absolute error
+  // is ≤ 240, so base ∈ [0, 240]. We still floor at 0 defensively: a future
+  // caller that passes partial/garbage results (not summing to 120) must never
+  // yield a negative score. The publish path enforces the sum-120 invariant
+  // upstream (see routes/admin/elections.ts).
   let totalAbsError = 0;
   for (const p of parties) {
     totalAbsError += Math.abs(predictedOf(p) - p.actualMandates);
   }
-  const base = 240 - totalAbsError;
+  const base = Math.max(0, 240 - totalAbsError);
 
   // --- bonusLargest (+10 or 0) -------------------------------------------
   // Award +10 IFF the set of predicted-largest ids intersects the set of

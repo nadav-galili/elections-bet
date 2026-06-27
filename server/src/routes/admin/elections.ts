@@ -57,11 +57,23 @@ router.delete('/:id', async (req, res) => {
   res.status(204).end();
 });
 
+// Once any user has submitted a pick, the party SET is frozen: picks are
+// validated against the party list at submission time, so adding/removing a
+// party afterwards would silently mis-score those picks at publish (a missing
+// prediction reads as 0). Editing a party in place stays allowed.
+async function assertPartySetMutable(electionId: string): Promise<void> {
+  const pickCount = await prisma.pick.count({ where: { electionId } });
+  if (pickCount > 0) {
+    throw new HttpError(409, 'לא ניתן לשנות את רשימת המפלגות לאחר שהוגשו תחזיות');
+  }
+}
+
 // POST /api/admin/elections/:id/parties — add a party to an election.
 router.post('/:id/parties', validate(createPartySchema), async (req, res) => {
   const electionId = String(req.params.id);
   const election = await prisma.election.findUnique({ where: { id: electionId } });
   if (!election) throw new HttpError(404, 'הבחירות לא נמצאו');
+  await assertPartySetMutable(electionId);
   const party = await prisma.party.create({ data: { ...req.body, electionId } });
   res.status(201).json(party);
 });
@@ -82,6 +94,7 @@ router.delete('/:id/parties/:partyId', async (req, res) => {
   const partyId = String(req.params.partyId);
   const party = await prisma.party.findFirst({ where: { id: partyId, electionId } });
   if (!party) throw new HttpError(404, 'הרשימה לא נמצאה');
+  await assertPartySetMutable(electionId);
   await prisma.party.delete({ where: { id: partyId } });
   res.status(204).end();
 });

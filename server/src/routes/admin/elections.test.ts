@@ -28,12 +28,14 @@ vi.mock('../../db', () => {
     findFirst: vi.fn(),
   };
   const score = { upsert: vi.fn() };
+  const pick = { count: vi.fn() };
   return {
     prisma: {
       user: { findUnique: vi.fn() },
       election,
       party,
       score,
+      pick,
       $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb({ election, party, score })),
     },
   };
@@ -50,6 +52,7 @@ const mocked = prisma as unknown as {
   >;
   party: Record<'create' | 'update' | 'delete' | 'findFirst', ReturnType<typeof vi.fn>>;
   score: Record<'upsert', ReturnType<typeof vi.fn>>;
+  pick: Record<'count', ReturnType<typeof vi.fn>>;
   $transaction: ReturnType<typeof vi.fn>;
 };
 
@@ -67,6 +70,8 @@ function asUser(): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: no picks yet, so the party set is mutable (party add/delete allowed).
+  mocked.pick.count.mockResolvedValue(0);
 });
 
 describe('admin elections — gating', () => {
@@ -160,8 +165,36 @@ describe('admin elections — validation & not-found', () => {
   });
 });
 
+describe('admin elections — party set frozen after picks exist', () => {
+  it('POST /:id/parties returns 409 once a pick has been submitted', async () => {
+    asAdmin();
+    mocked.election.findUnique.mockResolvedValue({ id: 'e1' });
+    mocked.pick.count.mockResolvedValue(1);
+
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/parties')
+      .send({ nameHe: 'ליכוד', bloc: 'A' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('לא ניתן לשנות את רשימת המפלגות לאחר שהוגשו תחזיות');
+    expect(mocked.party.create).not.toHaveBeenCalled();
+  });
+
+  it('DELETE /:id/parties/:partyId returns 409 once a pick has been submitted', async () => {
+    asAdmin();
+    mocked.party.findFirst.mockResolvedValue({ id: 'p1', electionId: 'e1' });
+    mocked.pick.count.mockResolvedValue(1);
+
+    const res = await request(createApp()).delete('/api/admin/elections/e1/parties/p1');
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('לא ניתן לשנות את רשימת המפלגות לאחר שהוגשו תחזיות');
+    expect(mocked.party.delete).not.toHaveBeenCalled();
+  });
+});
+
 describe('admin elections — PATCH /:id/results', () => {
-  it('sets actual mandates for every party (200)', async () => {
+  it('sets actual mandates for every party (200) with the submitted values', async () => {
     asAdmin();
     mocked.election.findUnique
       .mockResolvedValueOnce({ id: 'e1', parties: [{ id: 'p1' }, { id: 'p2' }] })
@@ -179,6 +212,15 @@ describe('admin elections — PATCH /:id/results', () => {
 
     expect(res.status).toBe(200);
     expect(mocked.party.update).toHaveBeenCalledTimes(2);
+    // The right value lands on the right party (not just "update was called").
+    expect(mocked.party.update).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+      data: { actualMandates: 60 },
+    });
+    expect(mocked.party.update).toHaveBeenCalledWith({
+      where: { id: 'p2' },
+      data: { actualMandates: 60 },
+    });
   });
 
   it('returns 400 when the sum is not 120', async () => {
@@ -258,7 +300,7 @@ describe('admin elections — POST /:id/publish', () => {
     })),
   });
 
-  it('returns 400 when results are missing/invalid', async () => {
+  it('returns 400 when a party result is missing (null)', async () => {
     asAdmin();
     mocked.election.findUnique.mockResolvedValue({
       id: 'e1',
@@ -275,6 +317,119 @@ describe('admin elections — POST /:id/publish', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('יש להזין תוצאות תקינות (סכום 120) לפני פרסום');
+  });
+
+  it('returns 400 when results are complete but do not sum to 120', async () => {
+    asAdmin();
+    mocked.election.findUnique.mockResolvedValue({
+      id: 'e1',
+      parties: [
+        { id: 'p1', bloc: 'A', actualMandates: 60 },
+        { id: 'p2', bloc: 'B', actualMandates: 59 }, // sum 119
+      ],
+      picks: [],
+    });
+
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/publish')
+      .send({ status: 'PROVISIONAL' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('יש להזין תוצאות תקינות (סכום 120) לפני פרסום');
+    expect(mocked.score.upsert).not.toHaveBeenCalled();
+  });
+
+  it('persists the computed score breakdown for each pick', async () => {
+    asAdmin();
+    // results 61/59; the pick predicts 61/59 (perfect) =>
+    // base 240, largest +10, threshold +2 (both parties in), bloc A +10 => 262.
+    mocked.election.findUnique
+      .mockResolvedValueOnce(electionWithResults(1))
+      .mockResolvedValueOnce({ id: 'e1', resultsStatus: 'PROVISIONAL', parties: [] });
+    mocked.score.upsert.mockResolvedValue({});
+    mocked.election.update.mockResolvedValue({});
+
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/publish')
+      .send({ status: 'PROVISIONAL' });
+
+    expect(res.status).toBe(200);
+    expect(mocked.score.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId_electionId: { userId: 'u0', electionId: 'e1' } },
+        create: expect.objectContaining({
+          userId: 'u0',
+          electionId: 'e1',
+          base: 240,
+          bonusLargest: 10,
+          bonusThreshold: 2,
+          bonusBloc: 10,
+          total: 262,
+        }),
+        update: expect.objectContaining({ base: 240, total: 262 }),
+      }),
+    );
+  });
+
+  it('re-publishing recomputes Scores from the current results (idempotent)', async () => {
+    asAdmin();
+    // First publish: perfect pick over 61/59 => base 240.
+    mocked.election.findUnique
+      .mockResolvedValueOnce(electionWithResults(1))
+      .mockResolvedValueOnce({ id: 'e1', resultsStatus: 'PROVISIONAL', parties: [] });
+    mocked.score.upsert.mockResolvedValue({});
+    mocked.election.update.mockResolvedValue({});
+
+    await request(createApp())
+      .post('/api/admin/elections/e1/publish')
+      .send({ status: 'PROVISIONAL' });
+    const firstBase = mocked.score.upsert.mock.calls[0][0].create.base;
+    expect(firstBase).toBe(240);
+
+    // Results corrected to 80/40; the same pick (61/59) is no longer perfect.
+    mocked.score.upsert.mockClear();
+    mocked.election.findUnique
+      .mockResolvedValueOnce({
+        id: 'e1',
+        parties: [
+          { id: 'p1', bloc: 'A', actualMandates: 80 },
+          { id: 'p2', bloc: 'B', actualMandates: 40 },
+        ],
+        picks: [
+          {
+            userId: 'u0',
+            entries: [
+              { partyId: 'p1', mandates: 61 },
+              { partyId: 'p2', mandates: 59 },
+            ],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ id: 'e1', resultsStatus: 'FINAL', parties: [] });
+
+    await request(createApp()).post('/api/admin/elections/e1/publish').send({ status: 'FINAL' });
+    // Σ|diff| = |61-80| + |59-40| = 19 + 19 = 38 => base 202 (recomputed, not stale).
+    const secondBase = mocked.score.upsert.mock.calls[0][0].create.base;
+    expect(secondBase).toBe(202);
+    expect(secondBase).not.toBe(firstBase);
+  });
+
+  it('publishes an election with no picks (sets status, writes no Scores)', async () => {
+    asAdmin();
+    mocked.election.findUnique
+      .mockResolvedValueOnce(electionWithResults(0))
+      .mockResolvedValueOnce({ id: 'e1', resultsStatus: 'PROVISIONAL', parties: [] });
+    mocked.election.update.mockResolvedValue({});
+
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/publish')
+      .send({ status: 'PROVISIONAL' });
+
+    expect(res.status).toBe(200);
+    expect(mocked.score.upsert).not.toHaveBeenCalled();
+    expect(mocked.election.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ resultsStatus: 'PROVISIONAL' }) }),
+    );
   });
 
   it('PROVISIONAL: computes & upserts a Score per pick and sets status', async () => {

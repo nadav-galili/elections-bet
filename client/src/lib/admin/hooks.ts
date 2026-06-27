@@ -138,7 +138,7 @@ export function usePublishResults(electionId: string) {
   return useMutation({
     mutationFn: async (status: Exclude<ResultsStatus, 'NONE'>) =>
       (await apiClient.post(`/api/admin/elections/${electionId}/publish`, { status }))
-        .data as Election,
+        .data as ElectionDetail,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminKeys.election(electionId) });
       void queryClient.invalidateQueries({ queryKey: adminKeys.elections });

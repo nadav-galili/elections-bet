@@ -29,6 +29,7 @@ import {
   toDateTimeLocal,
 } from '@/lib/admin/format';
 import type { ElectionDetail, Party } from '@/lib/admin/types';
+import { getApiErrorMessage } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -508,7 +509,7 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
               {setResults.isError && (
                 <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
                   <AlertCircle className="size-4" />
-                  שמירת התוצאות נכשלה. נסו שוב.
+                  {getApiErrorMessage(setResults.error, 'שמירת התוצאות נכשלה. נסו שוב.')}
                 </div>
               )}
 
@@ -530,7 +531,10 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
         {publishResults.isError && (
           <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="size-4" />
-            פרסום התוצאות נכשל. ודאו שהתוצאות תקינות ושלמות.
+            {getApiErrorMessage(
+              publishResults.error,
+              'פרסום התוצאות נכשל. ודאו שהתוצאות תקינות ושלמות.',
+            )}
           </div>
         )}
 
