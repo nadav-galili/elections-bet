@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, ArrowRight, Check, FileX, Loader2, Lock, Save } from 'lucide-react';
-import { useMemo } from 'react';
+import { AlertCircle, ArrowRight, Check, FileX, Loader2, Lock, Save, UserPlus } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
@@ -80,6 +80,12 @@ function PartyLogo({ src, alt }: { src: string | null; alt: string }) {
 function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pick | null }) {
   const saveMutation = useSavePick(election.id);
 
+  // Whether the player ALREADY had a submitted pick when this form mounted. The
+  // viral "start a group / invite friends" nudge fires only after the FIRST pick
+  // locks (the brag moment), not on every re-save. Snapshot once on mount.
+  const [hadPick] = useState(() => pick?.submittedAt != null);
+  const [showFirstPickNudge, setShowFirstPickNudge] = useState(false);
+
   const parties = useMemo(
     () => [...election.parties].sort((a, b) => a.displayOrder - b.displayOrder),
     [election.parties],
@@ -108,8 +114,15 @@ function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pi
       {
         entries: values.entries.map((e) => ({ partyId: e.partyId, mandates: Number(e.mandates) })),
       },
-      // Reset to the just-saved values so isDirty clears and the "נשמר" badge shows.
-      { onSuccess: () => form.reset(values) },
+      {
+        // Reset to the just-saved values so isDirty clears and the "נשמר" badge shows.
+        onSuccess: () => {
+          form.reset(values);
+          // Brag moment: the FIRST pick just locked in. Group-less play is fine,
+          // so nudge (don't gate) the player to start a group / invite friends.
+          if (!hadPick) setShowFirstPickNudge(true);
+        },
+      },
     );
   });
 
@@ -184,6 +197,30 @@ function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pi
             שמירת תחזית
           </Button>
         </div>
+
+        {showFirstPickNudge && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-display text-xl">
+                <span className="inline-flex size-9 items-center justify-center rounded-xl bg-candy-mint text-ink">
+                  <UserPlus className="size-5" />
+                </span>
+                התחזית שלך נשמרה!
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-base text-muted-foreground">
+                עכשיו פתחו קבוצה והזמינו חברים — מתחרים נגד מי שאתם מכירים זה הרבה יותר כיף.
+              </p>
+              <Button asChild size="lg">
+                <Link to="/groups">
+                  <UserPlus className="size-4" />
+                  פתחו קבוצה והזמינו חברים
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </form>
     </Form>
   );

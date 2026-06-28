@@ -44,11 +44,20 @@ const logoUrlField = z
   .optional()
   .transform((v) => (v === '' || v == null ? null : v));
 
+// Nullable optional int for a party's prior baseline. '' / null / undefined -> null
+// (clears the baseline ⇒ no delta); otherwise a non-negative integer (0 = brand-new
+// entrant). Mirrors logoUrlField's '' -> null normalization.
+const baselineMandatesField = z
+  .union([z.literal(''), z.number().int().min(0), z.null()])
+  .optional()
+  .transform((v) => (v === '' || v == null ? null : v));
+
 export const createPartySchema = z.object({
   nameHe: z.string().trim().min(1),
   logoUrl: logoUrlField,
   bloc: z.enum(['A', 'B', 'UNALIGNED']).default('UNALIGNED'),
   displayOrder: z.number().int().optional().default(0),
+  baselineMandates: baselineMandatesField,
 });
 
 export const updatePartySchema = z.object({
@@ -56,6 +65,7 @@ export const updatePartySchema = z.object({
   logoUrl: logoUrlField,
   bloc: z.enum(['A', 'B', 'UNALIGNED']).optional(),
   displayOrder: z.number().int().optional(),
+  baselineMandates: baselineMandatesField,
 });
 
 export type CreateElectionInput = z.infer<typeof createElectionSchema>;

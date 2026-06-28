@@ -4,6 +4,7 @@ import { clerkMiddleware } from '@clerk/express';
 import { env } from './env';
 import { errorHandler, notFound } from './middleware/error';
 import healthRouter from './routes/health';
+import forecastRouter from './routes/forecast';
 import meRouter from './routes/me';
 import picksRouter from './routes/picks';
 import webhooksRouter from './routes/webhooks';
@@ -34,6 +35,10 @@ export function createApp() {
   app.use(express.json());
 
   app.use('/health', healthRouter);
+
+  // Public, server-rendered forecast page. Mounted top-level (like /health),
+  // OUTSIDE clerkMiddleware, so shared links open with no auth.
+  app.use('/forecast', forecastRouter);
 
   // Clerk session middleware wraps the whole authenticated API surface once.
   // (Webhooks are mounted above, before this, so they stay outside it.)

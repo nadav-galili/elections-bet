@@ -28,6 +28,7 @@ const partyA = {
   bloc: 'A' as const,
   displayOrder: 1,
   actualMandates: null,
+  baselineMandates: null,
 };
 const partyB = {
   id: 'p2',
@@ -37,6 +38,7 @@ const partyB = {
   bloc: 'B' as const,
   displayOrder: 2,
   actualMandates: null,
+  baselineMandates: null,
 };
 
 function detail(overrides: Partial<ElectionDetail> = {}): ElectionDetail {

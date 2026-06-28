@@ -21,9 +21,11 @@
     "@clerk/express": "^2.1.32",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@resvg/resvg-js": "^2.6.2",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "pg": "^8.22.0",
+    "satori": "^0.26.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

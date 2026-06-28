@@ -23,6 +23,8 @@ export interface Party {
   bloc: Bloc;
   displayOrder: number;
   actualMandates: number | null;
+  /** Prior baseline for the "biggest movers" story. null = no delta; 0 = new entrant. */
+  baselineMandates: number | null;
 }
 
 export type ElectionDetail = Election & { parties: Party[] };
@@ -42,6 +44,7 @@ export interface PartyInput {
   logoUrl: string | null;
   bloc: Bloc;
   displayOrder: number;
+  baselineMandates: number | null;
 }
 
 /** A single party's actual result, sent when setting election results. */

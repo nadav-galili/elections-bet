@@ -119,6 +119,77 @@ describe('admin elections — happy paths', () => {
     );
   });
 
+  it('POST /:id/parties persists baselineMandates (0 = brand-new entrant)', async () => {
+    asAdmin();
+    mocked.election.findUnique.mockResolvedValue({ id: 'e1' });
+    mocked.party.create.mockResolvedValue({ id: 'p1', nameHe: 'מפלגה חדשה', electionId: 'e1' });
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/parties')
+      .send({ nameHe: 'מפלגה חדשה', bloc: 'A', baselineMandates: 0 });
+    expect(res.status).toBe(201);
+    expect(mocked.party.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ baselineMandates: 0 }) }),
+    );
+  });
+
+  it('PATCH /:id/parties/:partyId sets baselineMandates to a positive prior', async () => {
+    asAdmin();
+    mocked.party.findFirst.mockResolvedValue({ id: 'p1', electionId: 'e1' });
+    mocked.party.update.mockResolvedValue({ id: 'p1' });
+    const res = await request(createApp())
+      .patch('/api/admin/elections/e1/parties/p1')
+      .send({ baselineMandates: 32 });
+    expect(res.status).toBe(200);
+    expect(mocked.party.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'p1' },
+        data: expect.objectContaining({ baselineMandates: 32 }),
+      }),
+    );
+  });
+
+  it('PATCH /:id/parties/:partyId clears baselineMandates ("" -> null)', async () => {
+    asAdmin();
+    mocked.party.findFirst.mockResolvedValue({ id: 'p1', electionId: 'e1' });
+    mocked.party.update.mockResolvedValue({ id: 'p1' });
+    const res = await request(createApp())
+      .patch('/api/admin/elections/e1/parties/p1')
+      .send({ baselineMandates: '' });
+    expect(res.status).toBe(200);
+    expect(mocked.party.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'p1' },
+        data: expect.objectContaining({ baselineMandates: null }),
+      }),
+    );
+  });
+
+  it('PATCH /:id/parties/:partyId clears baselineMandates (null -> null)', async () => {
+    asAdmin();
+    mocked.party.findFirst.mockResolvedValue({ id: 'p1', electionId: 'e1' });
+    mocked.party.update.mockResolvedValue({ id: 'p1' });
+    const res = await request(createApp())
+      .patch('/api/admin/elections/e1/parties/p1')
+      .send({ baselineMandates: null });
+    expect(res.status).toBe(200);
+    expect(mocked.party.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'p1' },
+        data: expect.objectContaining({ baselineMandates: null }),
+      }),
+    );
+  });
+
+  it('POST /:id/parties rejects a negative baselineMandates (400)', async () => {
+    asAdmin();
+    mocked.election.findUnique.mockResolvedValue({ id: 'e1' });
+    const res = await request(createApp())
+      .post('/api/admin/elections/e1/parties')
+      .send({ nameHe: 'מפלגה', bloc: 'A', baselineMandates: -3 });
+    expect(res.status).toBe(400);
+    expect(mocked.party.create).not.toHaveBeenCalled();
+  });
+
   it('GET /:id returns an election with parties', async () => {
     asAdmin();
     mocked.election.findUnique.mockResolvedValue({ id: 'e1', nameHe: 'בחירות', parties: [] });
