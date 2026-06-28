@@ -49,8 +49,9 @@ function AdminNavLink() {
 }
 
 export default function App() {
+  const year = new Date().getFullYear();
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="border-b">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link to="/" className="text-lg font-extrabold">
@@ -84,11 +85,20 @@ export default function App() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
         <RouteErrorBoundary>
           <Outlet />
         </RouteErrorBoundary>
       </main>
+      <footer className="border-t">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-4 py-6 text-sm text-muted-foreground">
+          <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+            © {year} Nadav Galili
+          </span>
+          <span aria-hidden>·</span>
+          <span>כל הזכויות שמורות</span>
+        </div>
+      </footer>
     </div>
   );
 }

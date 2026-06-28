@@ -2,7 +2,6 @@ import { Show, SignInButton, useUser } from '@clerk/react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
-  CheckCircle2,
   Loader2,
   LogIn,
   Sparkles,
@@ -13,7 +12,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { api, useApi } from '@/lib/api';
+import { api } from '@/lib/api';
 import { usePick, usePlayerElections } from '@/lib/pick/hooks';
 import type { PlayerElection } from '@/lib/pick/types';
 import { Countdown } from '@/components/Countdown';
@@ -27,22 +26,23 @@ import { Button } from '@/components/ui/button';
 /** Public-knowledge party lineup, used purely as ambient marquee decoration. */
 const PARTY_NAMES = [
   'הליכוד',
-  'יש עתיד',
+  'ישר',
   'הציונות הדתית',
-  'המחנה הממלכתי',
+  'כחול לבן',
   'ש"ס',
   'יהדות התורה',
   'ישראל ביתנו',
   'רע"ם',
   'חד"ש-תע"ל',
-  'העבודה',
+  'הדמוקרטים',
+  'יחד',
 ];
 
 const VALUE_TILES = [
   {
     icon: Target,
     dot: 'bg-candy-mint',
-    title: 'חוזים מנדטים',
+    title: 'מנחשים מנדטים',
     body: 'מחלקים 120 מנדטים בין המפלגות — בדיוק כמו ועדת הבחירות, רק לפני כולם.',
   },
   {
@@ -85,27 +85,12 @@ function HealthBadge() {
   }
   return (
     <span className={`${base} text-white/80`}>
-      <CheckCircle2 className="size-4 text-candy-mint" /> מחובר לשרת
+      <span className="relative flex size-2.5" aria-hidden>
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-candy-mint opacity-75" />
+        <span className="relative inline-flex size-2.5 rounded-full bg-candy-mint" />
+      </span>
+      מחובר לשרת
     </span>
-  );
-}
-
-function MyAccount() {
-  const apiClient = useApi();
-  const { data, isLoading } = useQuery({
-    queryKey: ['me'],
-    queryFn: async () => (await apiClient.get('/api/me')).data as { id: string; role: string },
-  });
-
-  if (isLoading) return <p className="text-sm text-muted-foreground">טוען פרופיל…</p>;
-  return (
-    <p className="text-sm text-muted-foreground">
-      מזהה משתמש בשרת:{' '}
-      <span className="font-mono" dir="ltr" style={{ unicodeBidi: 'isolate' }}>
-        {data?.id ?? '—'}
-      </span>{' '}
-      · תפקיד: {data?.role}
-    </p>
   );
 }
 
@@ -186,15 +171,15 @@ export default function HomePage() {
           <div className="max-w-xl text-start">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm font-semibold text-white/80">
               <span className="size-1.5 rounded-full bg-candy-blue" />
-              תחזית הבחירות · הכנסת ה־26
+              ניחוש הבחירות · הכנסת ה־26
             </span>
 
             <h1 className="mt-6 font-display text-[clamp(2.5rem,6.5vw,4.25rem)] leading-[1.04] font-bold tracking-tight text-balance text-white">
-              חזו את תוצאות <span className="text-candy-blue">הבחירות</span>
+              נחשו את תוצאות <span className="text-candy-blue">הבחירות</span>
             </h1>
 
             <p className="mt-5 max-w-md text-lg leading-relaxed text-white/70 sm:text-xl">
-              חזו את חלוקת המנדטים, התחרו מול החברים, וראו מי הכי קרוב לתוצאות האמיתיות.
+              נחשו את חלוקת המנדטים, התחרו מול החברים, וראו מי הכי קרוב לתוצאות האמיתיות.
             </p>
 
             <div className="mt-8">
@@ -324,11 +309,12 @@ export default function HomePage() {
         </section>
       </Reveal>
 
-      <Show when="signed-in">
+      {/* <Show when="signed-in">
         <div className="text-center">
           <MyAccount />
         </div>
       </Show>
+      */}
     </div>
   );
 }
