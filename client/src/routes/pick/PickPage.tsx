@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, ArrowRight, Check, FileX, Loader2, Lock } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, FileX, Loader2, Lock, Save } from 'lucide-react';
 import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
@@ -174,7 +174,11 @@ function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pi
             size="lg"
             disabled={!form.formState.isValid || saveMutation.isPending}
           >
-            {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+            {saveMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
             שמירת תחזית
           </Button>
         </div>

@@ -1,4 +1,4 @@
-import { AlertCircle, Ban, Loader2, Pencil, Trash2, Undo2, Users } from 'lucide-react';
+import { AlertCircle, Ban, Loader2, Pencil, Save, Trash2, Undo2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   useBanUser,
@@ -82,7 +82,11 @@ function RenameDialog({ user, onClose }: { user: AdminUser; onClose: () => void 
               )
             }
           >
-            {updateUser.isPending && <Loader2 className="size-4 animate-spin" />}
+            {updateUser.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
             שמירה
           </Button>
         </DialogFooter>

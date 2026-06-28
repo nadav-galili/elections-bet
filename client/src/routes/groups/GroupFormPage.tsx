@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowRight, Loader2, Plus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -80,7 +80,11 @@ export default function GroupFormPage() {
 
           <div className="flex justify-end">
             <Button type="submit" disabled={createGroup.isPending}>
-              {createGroup.isPending && <Loader2 className="size-4 animate-spin" />}
+              {createGroup.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}
               צור קבוצה
             </Button>
           </div>

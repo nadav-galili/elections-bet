@@ -1,5 +1,6 @@
 import { Show, SignInButton, UserButton } from '@clerk/react';
 import { useQuery } from '@tanstack/react-query';
+import { LogIn, Shield, Trophy, Users } from 'lucide-react';
 import { Component, type ReactNode } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useApi } from '@/lib/api';
@@ -39,7 +40,10 @@ function AdminNavLink() {
 
   return (
     <Button asChild variant="ghost" size="sm">
-      <Link to="/admin">ניהול</Link>
+      <Link to="/admin">
+        <Shield className="size-4" />
+        ניהול
+      </Link>
     </Button>
   );
 }
@@ -55,15 +59,24 @@ export default function App() {
           <div className="flex items-center gap-3">
             <Show when="signed-out">
               <SignInButton mode="modal">
-                <Button size="sm">התחברות</Button>
+                <Button size="sm">
+                  <LogIn className="size-4" />
+                  התחברות
+                </Button>
               </SignInButton>
             </Show>
             <Show when="signed-in">
               <Button asChild variant="ghost" size="sm">
-                <Link to="/groups">הקבוצות שלי</Link>
+                <Link to="/groups">
+                  <Users className="size-4" />
+                  הקבוצות שלי
+                </Link>
               </Button>
               <Button asChild variant="ghost" size="sm">
-                <Link to="/leaderboard">טבלת דירוג</Link>
+                <Link to="/leaderboard">
+                  <Trophy className="size-4" />
+                  טבלת דירוג
+                </Link>
               </Button>
               <AdminNavLink />
               <UserButton />

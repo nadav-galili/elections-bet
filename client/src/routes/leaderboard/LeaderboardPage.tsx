@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Loader2, Pencil, Trophy, Users, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trophy, Users, X } from 'lucide-react';
 import { usePlayerElections } from '@/lib/pick/hooks';
 import type { PlayerElection, ResultsStatus } from '@/lib/pick/types';
 import { useElectionLeaderboard } from '@/lib/leaderboard/hooks';
@@ -236,6 +236,7 @@ export default function LeaderboardPage() {
               disabled={offset === 0}
               onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
             >
+              <ChevronRight className="size-4" />
               הקודם
             </Button>
             <span className="text-sm text-muted-foreground tabular-nums">
@@ -249,6 +250,7 @@ export default function LeaderboardPage() {
               onClick={() => setOffset((o) => o + PAGE_SIZE)}
             >
               הבא
+              <ChevronLeft className="size-4" />
             </Button>
           </div>
         </div>

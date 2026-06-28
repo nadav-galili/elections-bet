@@ -4,9 +4,11 @@ import {
   ArrowRight,
   Check,
   Loader2,
+  Megaphone,
   Pencil,
   Plus,
   RefreshCw,
+  Save,
   Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -198,7 +200,11 @@ function ConfigForm({ election }: { election: ElectionDetail }) {
                 </span>
               )}
               <Button type="submit" disabled={updateElection.isPending}>
-                {updateElection.isPending && <Loader2 className="size-4 animate-spin" />}
+                {updateElection.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Save className="size-4" />
+                )}
                 שמירת הגדרות
               </Button>
             </div>
@@ -521,7 +527,11 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
                   </span>
                 )}
                 <Button type="submit" disabled={!form.formState.isValid || setResults.isPending}>
-                  {setResults.isPending && <Loader2 className="size-4 animate-spin" />}
+                  {setResults.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Save className="size-4" />
+                  )}
                   שמירת תוצאות
                 </Button>
               </div>
@@ -546,6 +556,7 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
             disabled={publishResults.isPending}
             onClick={() => setConfirm('PROVISIONAL')}
           >
+            <Megaphone className="size-4" />
             פרסום תוצאות מדגם
           </Button>
           <Button
@@ -553,6 +564,7 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
             disabled={publishResults.isPending}
             onClick={() => setConfirm('FINAL')}
           >
+            <Megaphone className="size-4" />
             פרסום תוצאות סופיות
           </Button>
           {election.resultsStatus === 'FINAL' && (

@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Copy, Trash2, Trophy, Users } from 'lucide-react';
+import { AlertCircle, Check, Copy, LogOut, Trash2, Trophy, Users } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -255,6 +255,7 @@ export default function GroupDetailPage() {
 
           {isMember && (
             <Button variant="outline" size="sm" onClick={() => setConfirmLeave(true)}>
+              <LogOut className="size-3" />
               עזוב קבוצה
             </Button>
           )}

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { ArrowRight, LogIn } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { SignInButton, useAuth } from '@clerk/react';
 import { useJoinGroup } from '@/lib/groups/hooks';
@@ -35,7 +36,10 @@ export default function JoinPage() {
         <h1 className="text-xl font-extrabold tracking-tight">הצטרפות לקבוצה</h1>
         <p className="text-muted-foreground">יש להתחבר כדי להצטרף לקבוצה.</p>
         <SignInButton mode="modal">
-          <Button>התחברות</Button>
+          <Button>
+            <LogIn className="size-4" />
+            התחברות
+          </Button>
         </SignInButton>
       </div>
     );
@@ -51,7 +55,10 @@ export default function JoinPage() {
         />
         <div className="text-center">
           <Button asChild variant="outline">
-            <Link to="/groups">חזרה לקבוצות</Link>
+            <Link to="/groups">
+              <ArrowRight className="size-4" />
+              חזרה לקבוצות
+            </Link>
           </Button>
         </div>
       </div>

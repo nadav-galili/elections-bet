@@ -52,7 +52,10 @@ export default function AdminElectionsPage() {
           title="עדיין לא נוצרו בחירות."
           action={
             <Button asChild variant="outline" size="sm">
-              <Link to="/admin/elections/new">צרו את הבחירות הראשונות</Link>
+              <Link to="/admin/elections/new">
+                <Plus className="size-4" />
+                צרו את הבחירות הראשונות
+              </Link>
             </Button>
           }
         />

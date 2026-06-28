@@ -1,4 +1,4 @@
-import { Compass } from 'lucide-react';
+import { Compass, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '@/components/states';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,10 @@ export default function NotFoundPage() {
       description="הקישור שגוי או שהדף הוסר."
       action={
         <Button asChild size="lg">
-          <Link to="/">חזרה לדף הבית</Link>
+          <Link to="/">
+            <Home className="size-4" />
+            חזרה לדף הבית
+          </Link>
         </Button>
       }
     />

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Plus, Save } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -192,7 +192,13 @@ export function PartyDialog({
                 ביטול
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {mutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : isEdit ? (
+                  <Save className="size-4" />
+                ) : (
+                  <Plus className="size-4" />
+                )}
                 {isEdit ? 'שמירה' : 'הוספה'}
               </Button>
             </div>

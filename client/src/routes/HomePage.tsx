@@ -4,10 +4,12 @@ import {
   ArrowLeft,
   CheckCircle2,
   Loader2,
+  LogIn,
   Sparkles,
   Target,
   Trophy,
   Users,
+  Vote,
   XCircle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -155,6 +157,7 @@ function ActiveElectionCta() {
         className="h-12 px-8 text-base shadow-lg shadow-black/20 transition-transform active:translate-y-px"
       >
         <Link to={`/elections/${active.id}/pick`}>
+          <Vote className="size-4" />
           שמירת תחזית
           <ArrowLeft className="size-4" />
         </Link>
@@ -201,6 +204,7 @@ export default function HomePage() {
                     size="lg"
                     className="h-12 px-8 text-base shadow-lg shadow-black/20 transition-transform active:translate-y-px"
                   >
+                    <LogIn className="size-4" />
                     התחברות כדי להתחיל
                     <ArrowLeft className="size-4" />
                   </Button>
@@ -291,6 +295,7 @@ export default function HomePage() {
             <Show when="signed-out">
               <SignInButton mode="modal">
                 <Button size="lg" className="h-12 px-8 text-base">
+                  <LogIn className="size-4" />
                   התחברות כדי להתחיל
                   <ArrowLeft className="size-4" />
                 </Button>
@@ -309,7 +314,10 @@ export default function HomePage() {
                 variant="outline"
                 className="h-12 border-ink/20 bg-white/40 px-8 text-base text-ink hover:bg-white/70"
               >
-                <Link to="/leaderboard">טבלת דירוג</Link>
+                <Link to="/leaderboard">
+                  <Trophy className="size-4" />
+                  טבלת דירוג
+                </Link>
               </Button>
             </Show>
           </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trophy, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trophy, Users } from 'lucide-react';
 import { useGroupLeaderboard } from '@/lib/leaderboard/hooks';
 import { useMe } from '@/lib/me/hooks';
 import { Button } from '@/components/ui/button';
@@ -67,6 +67,7 @@ export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
           disabled={offset === 0}
           onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
         >
+          <ChevronRight className="size-4" />
           הקודם
         </Button>
         <span className="text-sm text-muted-foreground tabular-nums">
@@ -80,6 +81,7 @@ export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
           onClick={() => setOffset((o) => o + PAGE_SIZE)}
         >
           הבא
+          <ChevronLeft className="size-4" />
         </Button>
       </div>
     </div>
