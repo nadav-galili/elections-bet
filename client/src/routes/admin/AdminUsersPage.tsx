@@ -1,4 +1,4 @@
-import { AlertCircle, Ban, Loader2, Pencil, Trash2, Undo2, Users } from 'lucide-react';
+import { AlertCircle, Ban, Loader2, Pencil, Save, Trash2, Undo2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   useBanUser,
@@ -64,7 +64,7 @@ function RenameDialog({ user, onClose }: { user: AdminUser; onClose: () => void 
           />
         </div>
         {updateUser.isError && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="size-4 shrink-0" />
             {apiErrorMessage(updateUser.error)}
           </div>
@@ -82,7 +82,11 @@ function RenameDialog({ user, onClose }: { user: AdminUser; onClose: () => void 
               )
             }
           >
-            {updateUser.isPending && <Loader2 className="size-4 animate-spin" />}
+            {updateUser.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
             שמירה
           </Button>
         </DialogFooter>
@@ -223,7 +227,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">ניהול משתמשים</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">ניהול משתמשים</h1>
 
       <Input
         value={search}
@@ -248,22 +252,24 @@ export default function AdminUsersPage() {
       )}
 
       {!isLoading && !isError && data && data.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>שם</TableHead>
-              <TableHead>אימייל</TableHead>
-              <TableHead>תפקיד</TableHead>
-              <TableHead>סטטוס</TableHead>
-              <TableHead className="text-end">פעולות</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((user) => (
-              <UserRow key={user.id} user={user} />
-            ))}
-          </TableBody>
-        </Table>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>שם</TableHead>
+                <TableHead>אימייל</TableHead>
+                <TableHead>תפקיד</TableHead>
+                <TableHead>סטטוס</TableHead>
+                <TableHead className="text-end">פעולות</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((user) => (
+                <UserRow key={user.id} user={user} />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );

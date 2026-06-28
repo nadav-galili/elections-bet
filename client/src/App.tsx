@@ -1,5 +1,6 @@
 import { Show, SignInButton, UserButton } from '@clerk/react';
 import { useQuery } from '@tanstack/react-query';
+import { LogIn, Shield, Trophy, Users } from 'lucide-react';
 import { Component, type ReactNode } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useApi } from '@/lib/api';
@@ -39,31 +40,44 @@ function AdminNavLink() {
 
   return (
     <Button asChild variant="ghost" size="sm">
-      <Link to="/admin">ניהול</Link>
+      <Link to="/admin">
+        <Shield className="size-4" />
+        ניהול
+      </Link>
     </Button>
   );
 }
 
 export default function App() {
+  const year = new Date().getFullYear();
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="border-b">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link to="/" className="text-lg font-extrabold">
-            תחזית בחירות
+            בט בחירות
           </Link>
           <div className="flex items-center gap-3">
             <Show when="signed-out">
               <SignInButton mode="modal">
-                <Button size="sm">התחברות</Button>
+                <Button size="sm">
+                  <LogIn className="size-4" />
+                  התחברות
+                </Button>
               </SignInButton>
             </Show>
             <Show when="signed-in">
               <Button asChild variant="ghost" size="sm">
-                <Link to="/groups">הקבוצות שלי</Link>
+                <Link to="/groups">
+                  <Users className="size-4" />
+                  הקבוצות שלי
+                </Link>
               </Button>
               <Button asChild variant="ghost" size="sm">
-                <Link to="/leaderboard">טבלת דירוג</Link>
+                <Link to="/leaderboard">
+                  <Trophy className="size-4" />
+                  טבלת דירוג
+                </Link>
               </Button>
               <AdminNavLink />
               <UserButton />
@@ -71,11 +85,20 @@ export default function App() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
         <RouteErrorBoundary>
           <Outlet />
         </RouteErrorBoundary>
       </main>
+      <footer className="border-t">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-4 py-6 text-sm text-muted-foreground">
+          <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+            © {year} Nadav Galili
+          </span>
+          <span aria-hidden>·</span>
+          <span>כל הזכויות שמורות</span>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, ArrowRight, Check, FileX, Loader2, Lock } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, FileX, Loader2, Lock, Save } from 'lucide-react';
 import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { usePick, usePlayerElection, useSavePick } from '@/lib/pick/hooks';
 import type { Pick, PlayerElectionDetail } from '@/lib/pick/types';
 import { Countdown } from '@/components/Countdown';
+import { useDarkSurface } from '@/components/candy/useDarkSurface';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { useCountdown } from '@/lib/time';
 import { Button } from '@/components/ui/button';
@@ -115,14 +116,14 @@ function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pi
   return (
     <Form {...form}>
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
-        <div className="space-y-4">
+        <div className="divide-y divide-border rounded-2xl border border-border bg-card px-5 shadow-sm sm:px-6">
           {parties.map((party, index) => (
             <FormField
               key={party.id}
               control={form.control}
               name={`entries.${index}.mandates`}
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between gap-4">
+                <FormItem className="flex flex-row items-center justify-between gap-4 py-4">
                   <div className="flex items-center gap-3">
                     <PartyLogo src={party.logoUrl} alt="" />
                     <FormLabel className="text-base font-medium">{party.nameHe}</FormLabel>
@@ -134,7 +135,7 @@ function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pi
                         inputMode="numeric"
                         min={0}
                         max={120}
-                        className="w-24"
+                        className="w-24 text-center font-mono tabular-nums"
                         {...field}
                         value={field.value as number}
                       />
@@ -148,16 +149,17 @@ function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pi
         </div>
 
         <div
-          className={`text-lg font-semibold ${
-            remaining !== 0 ? 'text-destructive' : 'text-muted-foreground'
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-base font-semibold ${
+            remaining !== 0 ? 'bg-destructive/15 text-destructive' : 'bg-candy-mint text-ink'
           }`}
           aria-live="polite"
         >
+          {remaining === 0 && <Check className="size-4" />}
           {`נותרו: ${remaining}`}
         </div>
 
         {saveMutation.isError && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="size-4" />
             שמירת התחזית נכשלה. נסו שוב.
           </div>
@@ -174,7 +176,11 @@ function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pi
             size="lg"
             disabled={!form.formState.isValid || saveMutation.isPending}
           >
-            {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+            {saveMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
             שמירת תחזית
           </Button>
         </div>
@@ -191,8 +197,10 @@ function FrozenView({ election, pick }: { election: PlayerElectionDetail; pick: 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Lock className="size-5" />
+        <CardTitle className="flex items-center gap-2 font-display text-xl">
+          <span className="inline-flex size-9 items-center justify-center rounded-xl bg-candy-butter text-ink">
+            <Lock className="size-5" />
+          </span>
           התחזיות ננעלו
         </CardTitle>
       </CardHeader>
@@ -227,6 +235,7 @@ function FrozenView({ election, pick }: { election: PlayerElectionDetail; pick: 
 
 export default function PickPage() {
   const { id = '' } = useParams();
+  useDarkSurface();
   const electionQuery = usePlayerElection(id);
   const pickQuery = usePick(id);
 
@@ -243,7 +252,7 @@ export default function PickPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="theme-candy mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/">
@@ -251,7 +260,9 @@ export default function PickPage() {
             חזרה
           </Link>
         </Button>
-        <h1 className="text-2xl font-extrabold tracking-tight">{election?.nameHe ?? 'תחזית'}</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">
+          {election?.nameHe ?? 'תחזית'}
+        </h1>
       </div>
 
       {isLoading && <LoadingState />}

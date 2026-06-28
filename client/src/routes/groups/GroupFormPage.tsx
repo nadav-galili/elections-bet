@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowRight, Loader2, Plus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useCreateGroup } from '@/lib/groups/hooks';
+import { useDarkSurface } from '@/components/candy/useDarkSurface';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -22,6 +23,7 @@ const schema = z.object({
 type FormValues = z.input<typeof schema>;
 
 export default function GroupFormPage() {
+  useDarkSurface();
   const navigate = useNavigate();
   const createGroup = useCreateGroup();
 
@@ -44,7 +46,7 @@ export default function GroupFormPage() {
   });
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="theme-candy mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/groups">
@@ -52,7 +54,7 @@ export default function GroupFormPage() {
             חזרה
           </Link>
         </Button>
-        <h1 className="text-2xl font-extrabold tracking-tight">קבוצה חדשה</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">קבוצה חדשה</h1>
       </div>
 
       <Form {...form}>
@@ -72,7 +74,7 @@ export default function GroupFormPage() {
           />
 
           {createGroup.isError && (
-            <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
               <AlertCircle className="size-4" />
               שמירת הקבוצה נכשלה. נסו שוב.
             </div>
@@ -80,7 +82,11 @@ export default function GroupFormPage() {
 
           <div className="flex justify-end">
             <Button type="submit" disabled={createGroup.isPending}>
-              {createGroup.isPending && <Loader2 className="size-4 animate-spin" />}
+              {createGroup.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}
               צור קבוצה
             </Button>
           </div>

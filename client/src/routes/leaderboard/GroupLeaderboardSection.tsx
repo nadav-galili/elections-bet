@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trophy, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trophy, Users } from 'lucide-react';
 import { useGroupLeaderboard } from '@/lib/leaderboard/hooks';
 import { useMe } from '@/lib/me/hooks';
 import { Button } from '@/components/ui/button';
@@ -51,14 +51,21 @@ export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
   return (
     <div className="space-y-4">
       {data.yourRank !== null && (
-        <div className="flex items-center gap-2 rounded-md border bg-secondary/40 p-3 text-base font-medium">
-          <Trophy className="size-4" />
-          המקום שלך בקבוצה: <span className="font-bold tabular-nums">
-            {data.yourRank}
-          </span> מתוך <span className="font-bold tabular-nums">{data.totalCount}</span>
+        <div className="flex items-center gap-2 rounded-2xl border border-candy-butter/40 bg-candy-butter/10 p-4 text-base font-medium">
+          <span className="inline-flex size-8 items-center justify-center rounded-xl bg-candy-butter text-ink">
+            <Trophy className="size-4" />
+          </span>
+          המקום שלך בקבוצה: <span className="font-bold tabular-nums">{data.yourRank}</span> מתוך{' '}
+          <span className="font-bold tabular-nums">{data.totalCount}</span>
         </div>
       )}
-      <LeaderboardTable rows={data.rows} currentUserId={me?.id ?? null} yourRank={data.yourRank} />
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <LeaderboardTable
+          rows={data.rows}
+          currentUserId={me?.id ?? null}
+          yourRank={data.yourRank}
+        />
+      </div>
 
       <div className="flex items-center justify-between gap-3">
         <Button
@@ -67,6 +74,7 @@ export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
           disabled={offset === 0}
           onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
         >
+          <ChevronRight className="size-4" />
           הקודם
         </Button>
         <span className="text-sm text-muted-foreground tabular-nums">
@@ -80,6 +88,7 @@ export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
           onClick={() => setOffset((o) => o + PAGE_SIZE)}
         >
           הבא
+          <ChevronLeft className="size-4" />
         </Button>
       </div>
     </div>

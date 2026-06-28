@@ -63,9 +63,15 @@ These come from `implementation-plan.md` and are easy to get wrong:
 
 
 ## Design System Rules
-Icons: Lucide only, no emoji icons
-Typography: ≥ 15px labels, ≥ 18px body
-Responsive: all layouts mobile-first
-Don't: bright gradients, gradient text, heavy shadows, busy patterns, dark mode, border-radius > rounded-2xl, cramped spacing
+
+**`DESIGN.md` is the source of truth for all UI/UX of this app.** Read it before any design or styling work; its tokens (colors incl. the candy highlight trio, typography, spacing, radius, motion) and guardrails govern new and reworked screens. Where `DESIGN.md` conflicts with the older "don'ts" below, `DESIGN.md` wins (e.g. a cinematic dark hero panel and tasteful candy mesh gradients are allowed even though blanket "no dark mode / no gradients" was the prior default).
+
+Tokens live as CSS variables in `client/src/index.css`. The `DESIGN.md` look is applied **scoped** via the `.theme-candy` class (currently only the homepage and `/groups`), so adopting it on a new page is opt-in — wrap that page's root in `theme-candy`; pages without it keep the neutral shadcn theme.
+
+Hard rules that still hold regardless:
+- Icons: Lucide only, no emoji icons.
+- Hebrew is RTL — render Hebrew copy only in Hebrew-capable faces (display "Fredoka" → fallback "Heebo"; body "Heebo"). Never a Latin-only face for Hebrew.
+- Typography: ≥ 15px labels, ≥ 18px body. Responsive: mobile-first. Maintain text/background contrast (pastels are surfaces, not text colors).
+- Avoid: gradient text, heavy shadows, busy patterns, cramped spacing, full app-wide dark mode, border-radius beyond the radius tokens.
 
 ```

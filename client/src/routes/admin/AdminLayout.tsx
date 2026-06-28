@@ -1,6 +1,7 @@
 import { BarChart3, Users, UsersRound, Vote } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useDarkSurface } from '@/components/candy/useDarkSurface';
 
 const tabs = [
   { to: '/admin', label: 'בחירות', icon: Vote, end: true },
@@ -11,8 +12,9 @@ const tabs = [
 
 /** Shared layout for the super-admin god-mode surface: tab nav + nested route. */
 export default function AdminLayout() {
+  useDarkSurface();
   return (
-    <div className="space-y-8">
+    <div className="theme-candy space-y-8">
       <nav className="flex flex-wrap gap-2 border-b pb-3" aria-label="ניהול">
         {tabs.map(({ to, label, icon: Icon, end }) => (
           <NavLink
