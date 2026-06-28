@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LoadingState, ErrorState, EmptyState } from '@/components/states';
+import { Reveal } from '@/components/candy/Reveal';
+import { useDarkSurface } from '@/components/candy/useDarkSurface';
 import { LeaderboardTable } from './LeaderboardTable';
 
 /** מדגם (provisional) vs סופי (final) badge — must stay visually unmissable. */
@@ -119,6 +121,7 @@ function DisplayNameEditor() {
 }
 
 export default function LeaderboardPage() {
+  useDarkSurface();
   const { data: me } = useMe();
   const {
     data: elections,
@@ -164,10 +167,12 @@ export default function LeaderboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="theme-candy space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-          <Trophy className="size-6" />
+        <h1 className="flex items-center gap-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-candy-butter text-ink">
+            <Trophy className="size-6" />
+          </span>
           טבלת דירוג
           {data?.published && activeElection && (
             <ResultsStatusBadge status={activeElection.resultsStatus} />
@@ -212,8 +217,10 @@ export default function LeaderboardPage() {
       {data && data.published && (
         <div className="space-y-4">
           {data.yourRank !== null && (
-            <div className="flex items-center gap-2 rounded-md border bg-secondary/40 p-3 text-base font-medium">
-              <Trophy className="size-4" />
+            <div className="flex items-center gap-2 rounded-2xl border border-candy-butter/40 bg-candy-butter/10 p-4 text-base font-medium">
+              <span className="inline-flex size-8 items-center justify-center rounded-xl bg-candy-butter text-ink">
+                <Trophy className="size-4" />
+              </span>
               המקום שלך: <span className="font-bold tabular-nums">{data.yourRank}</span> מתוך{' '}
               <span className="font-bold tabular-nums">{data.totalCount}</span>
             </div>
@@ -222,11 +229,13 @@ export default function LeaderboardPage() {
           {data.rows.length === 0 ? (
             <EmptyState icon={Users} title="אין עדיין משתתפים מדורגים." />
           ) : (
-            <LeaderboardTable
-              rows={data.rows}
-              currentUserId={me?.id ?? null}
-              yourRank={data.yourRank}
-            />
+            <Reveal className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+              <LeaderboardTable
+                rows={data.rows}
+                currentUserId={me?.id ?? null}
+                yourRank={data.yourRank}
+              />
+            </Reveal>
           )}
 
           <div className="flex items-center justify-between gap-3">

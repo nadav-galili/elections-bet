@@ -3,11 +3,13 @@ import { ArrowRight, LogIn } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { SignInButton, useAuth } from '@clerk/react';
 import { useJoinGroup } from '@/lib/groups/hooks';
+import { useDarkSurface } from '@/components/candy/useDarkSurface';
 import { Button } from '@/components/ui/button';
 import { ErrorState, LoadingState } from '@/components/states';
 
 export default function JoinPage() {
   const { token } = useParams<{ token: string }>();
+  useDarkSurface();
   const navigate = useNavigate();
   const { isLoaded, isSignedIn } = useAuth();
   const joinGroup = useJoinGroup();
@@ -32,8 +34,8 @@ export default function JoinPage() {
   // Signed out — prompt for sign-in, then the effect will run on next render.
   if (!isSignedIn) {
     return (
-      <div className="mx-auto max-w-md space-y-4 py-16 text-center">
-        <h1 className="text-xl font-extrabold tracking-tight">הצטרפות לקבוצה</h1>
+      <div className="theme-candy mx-auto max-w-md space-y-4 py-16 text-center">
+        <h1 className="font-display text-2xl font-bold tracking-tight">הצטרפות לקבוצה</h1>
         <p className="text-muted-foreground">יש להתחבר כדי להצטרף לקבוצה.</p>
         <SignInButton mode="modal">
           <Button>
@@ -48,7 +50,7 @@ export default function JoinPage() {
   // Join failed.
   if (joinGroup.isError) {
     return (
-      <div className="mx-auto max-w-md space-y-4 py-16">
+      <div className="theme-candy mx-auto max-w-md space-y-4 py-16">
         <ErrorState
           title="ההצטרפות לקבוצה נכשלה"
           description="ייתכן שהקישור אינו תקין או שפג תוקפו."

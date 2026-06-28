@@ -32,6 +32,7 @@ import {
 } from '@/lib/admin/format';
 import type { ElectionDetail, Party } from '@/lib/admin/types';
 import { getApiErrorMessage } from '@/lib/utils';
+import { useDarkSurface } from '@/components/candy/useDarkSurface';
 import { ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -108,7 +109,7 @@ function ConfigForm({ election }: { election: ElectionDetail }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>הגדרות הבחירות</CardTitle>
+        <CardTitle className="font-display text-xl">הגדרות הבחירות</CardTitle>
         <CardDescription>שם, מועדי נעילה וחשיפה, ותוויות הגושים.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -187,7 +188,7 @@ function ConfigForm({ election }: { election: ElectionDetail }) {
             </div>
 
             {updateElection.isError && (
-              <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
                 <AlertCircle className="size-4 shrink-0" />
                 {getApiErrorMessage(updateElection.error, 'שמירת ההגדרות נכשלה. נסו שוב.')}
               </div>
@@ -237,7 +238,7 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <div className="grid gap-2">
-          <CardTitle>מפלגות</CardTitle>
+          <CardTitle className="font-display text-xl">מפלגות</CardTitle>
           <CardDescription>נהלו את רשימת המפלגות לבחירות אלו.</CardDescription>
         </div>
         <Button size="sm" onClick={openCreate}>
@@ -247,7 +248,7 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
       </CardHeader>
       <CardContent>
         {parties.length === 0 ? (
-          <p className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+          <p className="rounded-2xl border border-dashed py-10 text-center text-sm text-muted-foreground">
             עדיין לא נוספו מפלגות.
           </p>
         ) : (
@@ -310,7 +311,7 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
         )}
 
         {deleteParty.isError && (
-          <div className="mt-3 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          <div className="mt-3 flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="size-4 shrink-0" />
             {getApiErrorMessage(deleteParty.error, 'מחיקת המפלגה נכשלה. נסו שוב.')}
           </div>
@@ -462,14 +463,14 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>תוצאות הבחירות</CardTitle>
+        <CardTitle className="font-display text-xl">תוצאות הבחירות</CardTitle>
         <CardDescription>הזינו את חלוקת המנדטים בפועל ופרסמו לחישוב הניקוד.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <ResultsStatusBadge election={election} />
 
         {parties.length === 0 ? (
-          <p className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+          <p className="rounded-2xl border border-dashed py-10 text-center text-sm text-muted-foreground">
             יש להוסיף מפלגות לפני הזנת תוצאות.
           </p>
         ) : (
@@ -505,16 +506,17 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
               </div>
 
               <div
-                className={`text-lg font-semibold ${
-                  remaining !== 0 ? 'text-destructive' : 'text-muted-foreground'
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-base font-semibold ${
+                  remaining !== 0 ? 'bg-destructive/15 text-destructive' : 'bg-candy-mint text-ink'
                 }`}
                 aria-live="polite"
               >
+                {remaining === 0 && <Check className="size-4" />}
                 {`נותרו: ${remaining}`}
               </div>
 
               {setResults.isError && (
-                <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
                   <AlertCircle className="size-4" />
                   {getApiErrorMessage(setResults.error, 'שמירת התוצאות נכשלה. נסו שוב.')}
                 </div>
@@ -540,7 +542,7 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
         )}
 
         {publishResults.isError && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="size-4" />
             {getApiErrorMessage(
               publishResults.error,
@@ -614,13 +616,14 @@ function ResultsManager({ election }: { election: ElectionDetail }) {
 
 export default function ElectionDetailPage() {
   const { id = '' } = useParams();
+  useDarkSurface();
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useElection(id);
   const deleteElection = useDeleteElection();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="theme-candy space-y-6">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">
@@ -629,7 +632,9 @@ export default function ElectionDetailPage() {
               חזרה
             </Link>
           </Button>
-          <h1 className="text-2xl font-extrabold tracking-tight">{data?.nameHe ?? 'בחירות'}</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            {data?.nameHe ?? 'בחירות'}
+          </h1>
         </div>
         {data && (
           <Button

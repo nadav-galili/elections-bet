@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { GroupLeaderboardSection } from '@/routes/leaderboard/GroupLeaderboardSection';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Countdown } from '@/components/Countdown';
+import { useDarkSurface } from '@/components/candy/useDarkSurface';
 import { formatDate } from '@/lib/time';
 
 function inviteLink(token: string) {
@@ -45,7 +46,7 @@ function MemberAvatar({
 function PreRevealStatus({ member }: { member: PreRevealMember }) {
   if (member.pickStatus === 'submitted') {
     return (
-      <Badge variant="secondary" className="gap-1">
+      <Badge className="gap-1 bg-candy-mint text-ink hover:bg-candy-mint">
         <Check className="size-3" />
         הגיש
       </Badge>
@@ -107,7 +108,9 @@ function MemberRow({
           <MemberAvatar displayName={member.user.displayName} avatarUrl={member.user.avatarUrl} />
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{member.user.displayName || 'ללא שם'}</span>
-            {member.userId === currentUserId && <Badge variant="secondary">אתה</Badge>}
+            {member.userId === currentUserId && (
+              <Badge className="bg-candy-mint text-ink hover:bg-candy-mint">אתה</Badge>
+            )}
             {member.userId === adminUserId && <Badge>מנהל</Badge>}
           </div>
         </div>
@@ -183,6 +186,7 @@ function MemberList({
 
 export default function GroupDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
+  useDarkSurface();
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useGroup(id);
 
@@ -230,9 +234,11 @@ export default function GroupDetailPage() {
   const memberToRemove = data.memberships.find((m) => m.userId === confirmRemove);
 
   return (
-    <div className="space-y-6">
+    <div className="theme-candy space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-extrabold tracking-tight">{data.nameHe}</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          {data.nameHe}
+        </h1>
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -270,7 +276,7 @@ export default function GroupDetailPage() {
       </div>
 
       {copyError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           <AlertCircle className="size-4" />
           העתקת הקישור נכשלה. העתיקו ידנית:{' '}
           <span dir="ltr" className="font-mono [unicode-bidi:isolate]">
@@ -280,21 +286,21 @@ export default function GroupDetailPage() {
       )}
 
       {leaveGroup.isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           <AlertCircle className="size-4" />
           היציאה מהקבוצה נכשלה. נסו שוב.
         </div>
       )}
 
       {deleteGroup.isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           <AlertCircle className="size-4" />
           מחיקת הקבוצה נכשלה. נסו שוב.
         </div>
       )}
 
       {removeMember.isError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           <AlertCircle className="size-4" />
           הסרת החבר נכשלה. נסו שוב.
         </div>
@@ -334,13 +340,13 @@ export default function GroupDetailPage() {
       {tab === 'members' && (
         <>
           {data.privacyPhase === 'no_active' && (
-            <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">
               אין בחירות פעילות כרגע.
             </div>
           )}
 
           {data.privacyPhase === 'pre_reveal' && (
-            <div className="space-y-3 rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            <div className="space-y-3 rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">
               <p>התחזיות מוסתרות עד מועד החשיפה — מוצג רק מי הגיש.</p>
               <Countdown to={data.activeElection.lockAt} />
             </div>
@@ -348,7 +354,7 @@ export default function GroupDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>חברים</CardTitle>
+              <CardTitle className="font-display text-xl">חברים</CardTitle>
             </CardHeader>
             <CardContent>
               {data.memberships.length === 0 ? (

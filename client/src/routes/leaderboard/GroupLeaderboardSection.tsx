@@ -51,14 +51,21 @@ export function GroupLeaderboardSection({ groupId }: { groupId: string }) {
   return (
     <div className="space-y-4">
       {data.yourRank !== null && (
-        <div className="flex items-center gap-2 rounded-md border bg-secondary/40 p-3 text-base font-medium">
-          <Trophy className="size-4" />
-          המקום שלך בקבוצה: <span className="font-bold tabular-nums">
-            {data.yourRank}
-          </span> מתוך <span className="font-bold tabular-nums">{data.totalCount}</span>
+        <div className="flex items-center gap-2 rounded-2xl border border-candy-butter/40 bg-candy-butter/10 p-4 text-base font-medium">
+          <span className="inline-flex size-8 items-center justify-center rounded-xl bg-candy-butter text-ink">
+            <Trophy className="size-4" />
+          </span>
+          המקום שלך בקבוצה: <span className="font-bold tabular-nums">{data.yourRank}</span> מתוך{' '}
+          <span className="font-bold tabular-nums">{data.totalCount}</span>
         </div>
       )}
-      <LeaderboardTable rows={data.rows} currentUserId={me?.id ?? null} yourRank={data.yourRank} />
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <LeaderboardTable
+          rows={data.rows}
+          currentUserId={me?.id ?? null}
+          yourRank={data.yourRank}
+        />
+      </div>
 
       <div className="flex items-center justify-between gap-3">
         <Button

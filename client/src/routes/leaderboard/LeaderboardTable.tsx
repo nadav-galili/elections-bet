@@ -67,7 +67,9 @@ export function LeaderboardTable({
             <div className="flex items-center gap-3">
               <RowAvatar displayName={r.displayName} avatarUrl={r.avatarUrl} />
               <span className="font-medium">{r.displayName || 'ללא שם'}</span>
-              {r.userId === currentUserId && <Badge variant="secondary">אתה</Badge>}
+              {r.userId === currentUserId && (
+                <Badge className="bg-candy-mint text-ink hover:bg-candy-mint">אתה</Badge>
+              )}
             </div>
           );
         },
@@ -108,7 +110,7 @@ export function LeaderboardTable({
             <TableRow
               key={row.id}
               data-you={isYou || undefined}
-              className={cn(isYou && 'bg-secondary/60 hover:bg-secondary/60')}
+              className={cn(isYou && 'bg-candy-mint/15 hover:bg-candy-mint/15')}
             >
               {row.getVisibleCells().map((cell) => (
                 <TableCell key={cell.id} className="text-start">

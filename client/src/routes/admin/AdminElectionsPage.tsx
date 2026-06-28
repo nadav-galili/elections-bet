@@ -27,7 +27,7 @@ export default function AdminElectionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold tracking-tight">ניהול בחירות</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">ניהול בחירות</h1>
         <Button asChild>
           <Link to="/admin/elections/new">
             <Plus className="size-4" />
@@ -62,39 +62,41 @@ export default function AdminElectionsPage() {
       )}
 
       {!isLoading && !isError && data && data.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>שם</TableHead>
-              <TableHead>נעילה</TableHead>
-              <TableHead>חשיפת תחזיות</TableHead>
-              <TableHead>תוצאות</TableHead>
-              <TableHead>מפלגות</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((election) => (
-              <TableRow key={election.id}>
-                <TableCell className="font-medium">
-                  <Link
-                    to={`/admin/elections/${election.id}`}
-                    className="text-primary underline-offset-4 hover:underline"
-                  >
-                    {election.nameHe}
-                  </Link>
-                </TableCell>
-                <TableCell>{formatDateTime(election.lockAt)}</TableCell>
-                <TableCell>{formatDateTime(election.revealAt)}</TableCell>
-                <TableCell>
-                  <Badge variant={statusVariant(election.resultsStatus)}>
-                    {resultsStatusLabels[election.resultsStatus]}
-                  </Badge>
-                </TableCell>
-                <TableCell>{election._count?.parties ?? 0}</TableCell>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>שם</TableHead>
+                <TableHead>נעילה</TableHead>
+                <TableHead>חשיפת תחזיות</TableHead>
+                <TableHead>תוצאות</TableHead>
+                <TableHead>מפלגות</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {data.map((election) => (
+                <TableRow key={election.id}>
+                  <TableCell className="font-medium">
+                    <Link
+                      to={`/admin/elections/${election.id}`}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      {election.nameHe}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{formatDateTime(election.lockAt)}</TableCell>
+                  <TableCell>{formatDateTime(election.revealAt)}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant(election.resultsStatus)}>
+                      {resultsStatusLabels[election.resultsStatus]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{election._count?.parties ?? 0}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );

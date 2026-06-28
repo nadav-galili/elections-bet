@@ -74,14 +74,14 @@ function MembersDialog({
         )}
 
         {isError && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="size-4" />
             שגיאה בטעינת חברי הקבוצה.
           </div>
         )}
 
         {mutationError && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             <AlertCircle className="size-4 shrink-0" />
             {mutationError}
           </div>
@@ -147,7 +147,7 @@ export default function AdminGroupsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">ניהול קבוצות</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">ניהול קבוצות</h1>
 
       {isLoading && <LoadingState label="טוען קבוצות…" />}
 
@@ -164,55 +164,57 @@ export default function AdminGroupsPage() {
       )}
 
       {!isLoading && !isError && data && data.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>שם</TableHead>
-              <TableHead>מנהל</TableHead>
-              <TableHead>חברים</TableHead>
-              <TableHead>נוצרה</TableHead>
-              <TableHead className="text-end">פעולות</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((group) => (
-              <TableRow key={group.id}>
-                <TableCell className="font-medium">{group.nameHe}</TableCell>
-                <TableCell>{group.admin?.displayName ?? '—'}</TableCell>
-                <TableCell>{group.memberCount}</TableCell>
-                <TableCell>{formatDateTime(group.createdAt)}</TableCell>
-                <TableCell className="text-end">
-                  <div className="flex justify-start gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setReassign(group)}
-                      aria-label={`החלפת מנהל ${group.nameHe}`}
-                    >
-                      <ShieldCheck className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setRemoveMember(group)}
-                      aria-label={`הסרת חבר מ-${group.nameHe}`}
-                    >
-                      <UserMinus className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConfirmDelete(group)}
-                      aria-label={`מחיקת ${group.nameHe}`}
-                    >
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>שם</TableHead>
+                <TableHead>מנהל</TableHead>
+                <TableHead>חברים</TableHead>
+                <TableHead>נוצרה</TableHead>
+                <TableHead className="text-end">פעולות</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {data.map((group) => (
+                <TableRow key={group.id}>
+                  <TableCell className="font-medium">{group.nameHe}</TableCell>
+                  <TableCell>{group.admin?.displayName ?? '—'}</TableCell>
+                  <TableCell>{group.memberCount}</TableCell>
+                  <TableCell>{formatDateTime(group.createdAt)}</TableCell>
+                  <TableCell className="text-end">
+                    <div className="flex justify-start gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setReassign(group)}
+                        aria-label={`החלפת מנהל ${group.nameHe}`}
+                      >
+                        <ShieldCheck className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRemoveMember(group)}
+                        aria-label={`הסרת חבר מ-${group.nameHe}`}
+                      >
+                        <UserMinus className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirmDelete(group)}
+                        aria-label={`מחיקת ${group.nameHe}`}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <ConfirmDialog

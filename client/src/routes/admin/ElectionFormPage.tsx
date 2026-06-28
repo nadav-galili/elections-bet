@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useCreateElection } from '@/lib/admin/hooks';
 import { getApiErrorMessage } from '@/lib/utils';
+import { useDarkSurface } from '@/components/candy/useDarkSurface';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -30,6 +31,7 @@ const schema = z.object({
 type FormValues = z.input<typeof schema>;
 
 export default function ElectionFormPage() {
+  useDarkSurface();
   const navigate = useNavigate();
   const createElection = useCreateElection();
 
@@ -68,7 +70,7 @@ export default function ElectionFormPage() {
   });
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="theme-candy mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/admin">
@@ -76,7 +78,7 @@ export default function ElectionFormPage() {
             חזרה
           </Link>
         </Button>
-        <h1 className="text-2xl font-extrabold tracking-tight">בחירות חדשות</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">בחירות חדשות</h1>
       </div>
 
       <Form {...form}>
@@ -153,7 +155,7 @@ export default function ElectionFormPage() {
           </div>
 
           {createElection.isError && (
-            <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
               <AlertCircle className="size-4 shrink-0" />
               {getApiErrorMessage(createElection.error, 'שמירת הבחירות נכשלה. נסו שוב.')}
             </div>
