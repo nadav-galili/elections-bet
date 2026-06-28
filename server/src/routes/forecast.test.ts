@@ -165,6 +165,52 @@ describe('GET /forecast — canonical public page', () => {
     expect(res.text).not.toContain('ישראלים כבר ניבאו');
   });
 
+  it('PRE-lock: the CTA routes to the active-election pick screen', async () => {
+    // lockAt in the far future ⇒ picks still open ⇒ deep-link into the pick screen.
+    mocked.election.findFirst.mockResolvedValue({
+      id: 'e1',
+      nameHe: 'בחירות 2026',
+      lockAt: new Date('2999-01-01T20:00:00Z'),
+    });
+    mocked.pick.findMany.mockResolvedValue([submitted()]);
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(`href="${env.CLIENT_ORIGIN}/elections/e1/pick"`);
+    expect(res.text).toContain('נסו לנחש גם אתם');
+    // No dead-end frozen path: it must NOT send strangers to the leaderboard pre-lock.
+    expect(res.text).not.toContain(`href="${env.CLIENT_ORIGIN}/leaderboard"`);
+  });
+
+  it('PRE-lock: a null lockAt is treated as open and routes to the pick screen', async () => {
+    mocked.election.findFirst.mockResolvedValue({
+      id: 'e1',
+      nameHe: 'בחירות 2026',
+      lockAt: null,
+    });
+    mocked.pick.findMany.mockResolvedValue([submitted()]);
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.text).toContain(`href="${env.CLIENT_ORIGIN}/elections/e1/pick"`);
+  });
+
+  it('POST-lock: the CTA routes to the reveal/leaderboard view, not a frozen pick screen', async () => {
+    // lockAt in the past ⇒ picks frozen ⇒ CTA captures the sign-up via the leaderboard.
+    mocked.election.findFirst.mockResolvedValue({
+      id: 'e1',
+      nameHe: 'בחירות 2026',
+      lockAt: new Date('2020-01-01T20:00:00Z'),
+    });
+    mocked.pick.findMany.mockResolvedValue([submitted()]);
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(`href="${env.CLIENT_ORIGIN}/leaderboard"`);
+    expect(res.text).toContain('התחזיות ננעלו');
+    // Must NOT deep-link into the now-frozen pick screen.
+    expect(res.text).not.toContain(`href="${env.CLIENT_ORIGIN}/elections/e1/pick"`);
+  });
+
   it('no active election: graceful 200 empty page', async () => {
     mocked.election.findFirst.mockResolvedValue(null);
 

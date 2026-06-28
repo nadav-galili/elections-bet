@@ -146,4 +146,55 @@ describe('PickPage', () => {
     expect(await screen.findByText(/התחזיות ננעלות בעוד/)).toBeInTheDocument();
     expect(screen.getByLabelText('מפלגה א')).toBeInTheDocument();
   });
+
+  it('shows the "start a group / invite friends" nudge after the FIRST pick locks', async () => {
+    const user = userEvent.setup();
+    // No existing submitted pick ⇒ this submission is the first pick.
+    mockGet(detail(), null);
+    put.mockResolvedValue({ data: { entries: [], submittedAt: '2026-01-01T00:00:00.000Z' } });
+    renderPage();
+
+    const inputA = await screen.findByLabelText('מפלגה א');
+    await user.clear(inputA);
+    await user.type(inputA, '60');
+    const inputB = screen.getByLabelText('מפלגה ב');
+    await user.clear(inputB);
+    await user.type(inputB, '60');
+
+    // Nudge is absent until the pick is actually submitted (fired at the brag moment).
+    expect(screen.queryByText('פתחו קבוצה והזמינו חברים')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'שמירת תחזית' }));
+
+    const nudge = await screen.findByRole('link', { name: 'פתחו קבוצה והזמינו חברים' });
+    expect(nudge).toBeInTheDocument();
+    expect(nudge).toHaveAttribute('href', '/groups');
+  });
+
+  it('does NOT show the first-pick nudge when re-saving an already-submitted pick', async () => {
+    const user = userEvent.setup();
+    // The player already had a submitted pick on load ⇒ no brag-moment nudge.
+    mockGet(detail(), {
+      submittedAt: '2026-01-01T00:00:00.000Z',
+      entries: [
+        { partyId: 'p1', mandates: 60 },
+        { partyId: 'p2', mandates: 60 },
+      ],
+    });
+    put.mockResolvedValue({ data: { entries: [], submittedAt: '2026-01-02T00:00:00.000Z' } });
+    renderPage();
+
+    const inputA = await screen.findByLabelText('מפלגה א');
+    await user.clear(inputA);
+    await user.type(inputA, '70');
+    const inputB = screen.getByLabelText('מפלגה ב');
+    await user.clear(inputB);
+    await user.type(inputB, '50');
+
+    await user.click(screen.getByRole('button', { name: 'שמירת תחזית' }));
+
+    // The save badge appears, but the viral nudge must not (it is first-pick only).
+    expect(await screen.findByText('נשמר')).toBeInTheDocument();
+    expect(screen.queryByText('פתחו קבוצה והזמינו חברים')).toBeNull();
+  });
 });

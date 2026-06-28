@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { env } from '../env';
 import { getActiveElection } from '../lib/election';
 import { computeForecast, type Forecast } from '../lib/forecast';
+import { isLocked } from '../lib/time';
 
 // PUBLIC, server-rendered forecast page. Mounted OUTSIDE clerkMiddleware (top-level
 // in app.ts, like /health) so it needs no auth — shareable links must open for
@@ -60,8 +61,17 @@ function renderForecastPage(
   partyNames: Map<string, string>,
   blocALabel: string | null,
   blocBLabel: string | null,
+  lockAt: Date | null,
 ): string {
-  const pickUrl = `${env.CLIENT_ORIGIN}/elections/${encodeURIComponent(electionId)}/pick`;
+  // Lock-aware CTA: a stranger who signs up should land where they can still act.
+  // PRE-lock → the active-election pick screen (highest-intent path). POST-lock →
+  // the reveal / leaderboard view (still captures the sign-up; never a frozen,
+  // dead-end pick screen). Both deep-link into the SPA on CLIENT_ORIGIN.
+  const locked = isLocked(lockAt);
+  const ctaUrl = locked
+    ? `${env.CLIENT_ORIGIN}/leaderboard`
+    : `${env.CLIENT_ORIGIN}/elections/${encodeURIComponent(electionId)}/pick`;
+  const ctaLabel = locked ? 'התחזיות ננעלו — לצפייה בתוצאות' : 'נסו לנחש גם אתם';
 
   let hero: string;
   let numbers = '';
@@ -102,7 +112,7 @@ function renderForecastPage(
         ${hero}
         ${numbers}
         <p class="framing">זה משחק, לא סקר. ניחוש מנדטים בין חברים — בלי כסף, רק נקודות וכבוד.</p>
-        <a class="cta" href="${esc(pickUrl)}">נסו לנחש גם אתם</a>
+        <a class="cta" href="${esc(ctaUrl)}">${esc(ctaLabel)}</a>
       </main>
     `,
   );
@@ -296,6 +306,7 @@ router.get('/', async (_req, res) => {
         partyNames,
         election.blocALabel,
         election.blocBLabel,
+        election.lockAt,
       ),
     );
 });
@@ -305,7 +316,7 @@ router.get('/:electionId', async (req, res) => {
   const electionId = String(req.params.electionId);
   const election = await prisma.election.findUnique({
     where: { id: electionId },
-    select: { id: true, nameHe: true, blocALabel: true, blocBLabel: true },
+    select: { id: true, nameHe: true, blocALabel: true, blocBLabel: true, lockAt: true },
   });
   if (!election) {
     res.status(404).type('html').send(renderEmptyPage());
@@ -323,6 +334,7 @@ router.get('/:electionId', async (req, res) => {
         partyNames,
         election.blocALabel,
         election.blocBLabel,
+        election.lockAt,
       ),
     );
 });
