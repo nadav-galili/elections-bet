@@ -1,5 +1,6 @@
 import { AlertCircle, Loader2, ShieldCheck, Trash2, UserMinus, UsersRound } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import {
   useAdminGroup,
   useAllGroups,
@@ -19,14 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 
 /** Dialog listing a group's members, used to reassign admin or remove a member. */
@@ -145,6 +139,69 @@ export default function AdminGroupsPage() {
   const [reassign, setReassign] = useState<AdminGroup | null>(null);
   const [removeMember, setRemoveMember] = useState<AdminGroup | null>(null);
 
+  const columns = useMemo<ColumnDef<AdminGroup, unknown>[]>(() => {
+    const ch = createColumnHelper<AdminGroup>();
+    return [
+      ch.accessor('nameHe', {
+        header: 'שם',
+        cell: (info) => info.getValue(),
+        meta: { align: 'start', className: 'font-medium' },
+      }),
+      ch.display({
+        id: 'admin',
+        header: 'מנהל',
+        cell: ({ row }) => row.original.admin?.displayName ?? '—',
+        meta: { align: 'start' },
+      }),
+      ch.accessor('memberCount', {
+        header: 'חברים',
+        cell: (info) => info.getValue(),
+        meta: { align: 'start' },
+      }),
+      ch.accessor('createdAt', {
+        header: 'נוצרה',
+        cell: (info) => formatDateTime(info.getValue()),
+        meta: { align: 'start' },
+      }),
+      ch.display({
+        id: 'actions',
+        header: 'פעולות',
+        cell: ({ row }) => {
+          const group = row.original;
+          return (
+            <div className="flex justify-start gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setReassign(group)}
+                aria-label={`החלפת מנהל ${group.nameHe}`}
+              >
+                <ShieldCheck className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setRemoveMember(group)}
+                aria-label={`הסרת חבר מ-${group.nameHe}`}
+              >
+                <UserMinus className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDelete(group)}
+                aria-label={`מחיקת ${group.nameHe}`}
+              >
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </div>
+          );
+        },
+        meta: { align: 'end' },
+      }),
+    ] as ColumnDef<AdminGroup, unknown>[];
+  }, [setReassign, setRemoveMember, setConfirmDelete]);
+
   return (
     <div className="space-y-6">
       <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">ניהול קבוצות</h1>
@@ -165,55 +222,7 @@ export default function AdminGroupsPage() {
 
       {!isLoading && !isError && data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>שם</TableHead>
-                <TableHead>מנהל</TableHead>
-                <TableHead>חברים</TableHead>
-                <TableHead>נוצרה</TableHead>
-                <TableHead className="text-end">פעולות</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((group) => (
-                <TableRow key={group.id}>
-                  <TableCell className="font-medium">{group.nameHe}</TableCell>
-                  <TableCell>{group.admin?.displayName ?? '—'}</TableCell>
-                  <TableCell>{group.memberCount}</TableCell>
-                  <TableCell>{formatDateTime(group.createdAt)}</TableCell>
-                  <TableCell className="text-end">
-                    <div className="flex justify-start gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setReassign(group)}
-                        aria-label={`החלפת מנהל ${group.nameHe}`}
-                      >
-                        <ShieldCheck className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setRemoveMember(group)}
-                        aria-label={`הסרת חבר מ-${group.nameHe}`}
-                      >
-                        <UserMinus className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setConfirmDelete(group)}
-                        aria-label={`מחיקת ${group.nameHe}`}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable columns={columns} data={data} />
         </div>
       )}
 

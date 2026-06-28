@@ -11,6 +11,7 @@ import {
   Save,
   Trash2,
 } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -46,14 +47,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { PartyDialog } from '@/routes/admin/PartyDialog';
 
@@ -234,6 +228,86 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
 
   const parties = [...election.parties].sort((a, b) => a.displayOrder - b.displayOrder);
 
+  const columns = useMemo<ColumnDef<Party, unknown>[]>(
+    () => [
+      {
+        id: 'logo',
+        header: 'לוגו',
+        meta: { align: 'center' },
+        cell: ({ row }) => {
+          const party = row.original;
+          return party.logoUrl ? (
+            <img
+              src={party.logoUrl}
+              alt={party.nameHe}
+              className="size-8 rounded object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="flex size-8 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+              —
+            </div>
+          );
+        },
+      },
+      {
+        id: 'name',
+        header: 'שם',
+        meta: { align: 'start', className: 'font-medium' },
+        cell: ({ row }) => row.original.nameHe,
+      },
+      {
+        id: 'bloc',
+        header: 'גוש',
+        meta: { align: 'start' },
+        cell: ({ row }) => blocLabel(row.original.bloc, election),
+      },
+      {
+        id: 'order',
+        header: 'סדר',
+        meta: { align: 'start' },
+        cell: ({ row }) => row.original.displayOrder,
+      },
+      {
+        id: 'baseline',
+        header: 'בסיס',
+        meta: { align: 'start' },
+        cell: ({ row }) => row.original.baselineMandates ?? '—',
+      },
+      {
+        id: 'actions',
+        header: 'פעולות',
+        meta: { align: 'end' },
+        cell: ({ row }) => {
+          const party = row.original;
+          return (
+            <div className="flex justify-start gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openEdit(party)}
+                aria-label={`עריכת ${party.nameHe}`}
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDelete(party)}
+                aria-label={`מחיקת ${party.nameHe}`}
+              >
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [election],
+  );
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
@@ -252,64 +326,7 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
             עדיין לא נוספו מפלגות.
           </p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>לוגו</TableHead>
-                <TableHead>שם</TableHead>
-                <TableHead>גוש</TableHead>
-                <TableHead>סדר</TableHead>
-                <TableHead>בסיס</TableHead>
-                <TableHead className="text-end">פעולות</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {parties.map((party) => (
-                <TableRow key={party.id}>
-                  <TableCell>
-                    {party.logoUrl ? (
-                      <img
-                        src={party.logoUrl}
-                        alt={party.nameHe}
-                        className="size-8 rounded object-contain"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="flex size-8 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
-                        —
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">{party.nameHe}</TableCell>
-                  <TableCell>{blocLabel(party.bloc, election)}</TableCell>
-                  <TableCell>{party.displayOrder}</TableCell>
-                  <TableCell>{party.baselineMandates ?? '—'}</TableCell>
-                  <TableCell className="text-end">
-                    <div className="flex justify-start gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(party)}
-                        aria-label={`עריכת ${party.nameHe}`}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setConfirmDelete(party)}
-                        aria-label={`מחיקת ${party.nameHe}`}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable columns={columns} data={parties} />
         )}
 
         {deleteParty.isError && (

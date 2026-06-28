@@ -1,25 +1,63 @@
 import { Plus, Vote } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { useElections } from '@/lib/admin/hooks';
 import { formatDateTime, resultsStatusLabels } from '@/lib/admin/format';
 import type { ResultsStatus } from '@/lib/admin/types';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table';
 
 function statusVariant(status: ResultsStatus): 'default' | 'secondary' | 'outline' {
   if (status === 'FINAL') return 'default';
   if (status === 'PROVISIONAL') return 'secondary';
   return 'outline';
 }
+
+type AdminElection = NonNullable<ReturnType<typeof useElections>['data']>[number];
+
+const columnHelper = createColumnHelper<AdminElection>();
+
+const columns: ColumnDef<AdminElection, unknown>[] = [
+  columnHelper.accessor('nameHe', {
+    header: 'שם',
+    meta: { align: 'start', className: 'font-medium' },
+    cell: ({ row }) => (
+      <Link
+        to={`/admin/elections/${row.original.id}`}
+        className="text-primary underline-offset-4 hover:underline"
+      >
+        {row.original.nameHe}
+      </Link>
+    ),
+  }),
+  columnHelper.accessor('lockAt', {
+    header: 'נעילה',
+    meta: { align: 'start' },
+    cell: ({ row }) => formatDateTime(row.original.lockAt),
+  }),
+  columnHelper.accessor('revealAt', {
+    header: 'חשיפת תחזיות',
+    meta: { align: 'start' },
+    cell: ({ row }) => formatDateTime(row.original.revealAt),
+  }),
+  columnHelper.accessor('resultsStatus', {
+    header: 'תוצאות',
+    meta: { align: 'start' },
+    cell: ({ row }) => (
+      <Badge variant={statusVariant(row.original.resultsStatus)}>
+        {resultsStatusLabels[row.original.resultsStatus]}
+      </Badge>
+    ),
+  }),
+  columnHelper.display({
+    id: 'parties',
+    header: 'מפלגות',
+    meta: { align: 'start' },
+    cell: ({ row }) => row.original._count?.parties ?? 0,
+  }),
+] as ColumnDef<AdminElection, unknown>[];
 
 export default function AdminElectionsPage() {
   const { data, isLoading, isError, refetch } = useElections();
@@ -63,39 +101,7 @@ export default function AdminElectionsPage() {
 
       {!isLoading && !isError && data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>שם</TableHead>
-                <TableHead>נעילה</TableHead>
-                <TableHead>חשיפת תחזיות</TableHead>
-                <TableHead>תוצאות</TableHead>
-                <TableHead>מפלגות</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((election) => (
-                <TableRow key={election.id}>
-                  <TableCell className="font-medium">
-                    <Link
-                      to={`/admin/elections/${election.id}`}
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      {election.nameHe}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{formatDateTime(election.lockAt)}</TableCell>
-                  <TableCell>{formatDateTime(election.revealAt)}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant(election.resultsStatus)}>
-                      {resultsStatusLabels[election.resultsStatus]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{election._count?.parties ?? 0}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable columns={columns} data={data} />
         </div>
       )}
     </div>

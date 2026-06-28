@@ -1,5 +1,6 @@
 import { AlertCircle, Ban, Loader2, Pencil, Save, Trash2, Undo2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import {
   useBanUser,
   useDeleteUser,
@@ -28,14 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 
 const roleLabels: Record<Role, string> = {
@@ -95,18 +89,12 @@ function RenameDialog({ user, onClose }: { user: AdminUser; onClose: () => void 
   );
 }
 
-function UserRow({ user }: { user: AdminUser }) {
+/** Role Select for a single user, with a confirm gate for promotion to super-admin. */
+function RoleCell({ user }: { user: AdminUser }) {
   const updateUser = useUpdateUser();
-  const banUser = useBanUser();
-  const unbanUser = useUnbanUser();
-  const deleteUser = useDeleteUser();
-  const [rename, setRename] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   // Promoting to super-admin is sensitive — gate it behind a confirm. Other
   // role changes (e.g. demoting back to a regular user) apply immediately.
   const [confirmPromote, setConfirmPromote] = useState(false);
-
-  const banned = user.bannedAt !== null;
 
   const changeRole = (role: Role) => {
     if (role === user.role) return;
@@ -118,81 +106,16 @@ function UserRow({ user }: { user: AdminUser }) {
   };
 
   return (
-    <TableRow>
-      <TableCell className="font-medium">{user.displayName ?? '—'}</TableCell>
-      <TableCell>{user.email ?? '—'}</TableCell>
-      <TableCell>
-        <Select value={user.role} onValueChange={(role) => changeRole(role as Role)}>
-          <SelectTrigger size="sm" aria-label={`תפקיד ${user.displayName ?? user.id}`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="USER">{roleLabels.USER}</SelectItem>
-            <SelectItem value="SUPER_ADMIN">{roleLabels.SUPER_ADMIN}</SelectItem>
-          </SelectContent>
-        </Select>
-      </TableCell>
-      <TableCell>
-        {banned ? (
-          <Badge variant="destructive">מושעה</Badge>
-        ) : (
-          <Badge variant="outline">פעיל</Badge>
-        )}
-      </TableCell>
-      <TableCell className="text-end">
-        <div className="flex justify-start gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setRename(true)}
-            aria-label={`שינוי שם ${user.displayName ?? user.id}`}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          {banned ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={unbanUser.isPending}
-              onClick={() => unbanUser.mutate(user.id)}
-              aria-label={`ביטול השעיה ${user.displayName ?? user.id}`}
-            >
-              <Undo2 className="size-4" />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={banUser.isPending}
-              onClick={() => banUser.mutate(user.id)}
-              aria-label={`השעיית ${user.displayName ?? user.id}`}
-            >
-              <Ban className="size-4 text-destructive" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setConfirmDelete(true)}
-            aria-label={`מחיקת ${user.displayName ?? user.id}`}
-          >
-            <Trash2 className="size-4 text-destructive" />
-          </Button>
-        </div>
-      </TableCell>
-
-      {rename && <RenameDialog user={user} onClose={() => setRename(false)} />}
-
-      <ConfirmDialog
-        open={confirmDelete}
-        onOpenChange={setConfirmDelete}
-        title="מחיקת משתמש"
-        description={`למחוק את "${user.displayName ?? user.email ?? user.id}"? לא ניתן לשחזר.`}
-        confirmLabel="מחיקה"
-        pending={deleteUser.isPending}
-        error={deleteUser.isError ? apiErrorMessage(deleteUser.error) : undefined}
-        onConfirm={() => deleteUser.mutate(user.id, { onSuccess: () => setConfirmDelete(false) })}
-      />
+    <>
+      <Select value={user.role} onValueChange={(role) => changeRole(role as Role)}>
+        <SelectTrigger size="sm" aria-label={`תפקיד ${user.displayName ?? user.id}`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="USER">{roleLabels.USER}</SelectItem>
+          <SelectItem value="SUPER_ADMIN">{roleLabels.SUPER_ADMIN}</SelectItem>
+        </SelectContent>
+      </Select>
 
       <ConfirmDialog
         open={confirmPromote}
@@ -209,9 +132,117 @@ function UserRow({ user }: { user: AdminUser }) {
           )
         }
       />
-    </TableRow>
+    </>
   );
 }
+
+/** Action buttons (rename / ban / unban / delete) for a single user, with their dialogs. */
+function UserActionsCell({ user }: { user: AdminUser }) {
+  const banUser = useBanUser();
+  const unbanUser = useUnbanUser();
+  const deleteUser = useDeleteUser();
+  const [rename, setRename] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const banned = user.bannedAt !== null;
+
+  return (
+    <>
+      <div className="flex justify-start gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setRename(true)}
+          aria-label={`שינוי שם ${user.displayName ?? user.id}`}
+        >
+          <Pencil className="size-4" />
+        </Button>
+        {banned ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={unbanUser.isPending}
+            onClick={() => unbanUser.mutate(user.id)}
+            aria-label={`ביטול השעיה ${user.displayName ?? user.id}`}
+          >
+            <Undo2 className="size-4" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={banUser.isPending}
+            onClick={() => banUser.mutate(user.id)}
+            aria-label={`השעיית ${user.displayName ?? user.id}`}
+          >
+            <Ban className="size-4 text-destructive" />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setConfirmDelete(true)}
+          aria-label={`מחיקת ${user.displayName ?? user.id}`}
+        >
+          <Trash2 className="size-4 text-destructive" />
+        </Button>
+      </div>
+
+      {rename && <RenameDialog user={user} onClose={() => setRename(false)} />}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="מחיקת משתמש"
+        description={`למחוק את "${user.displayName ?? user.email ?? user.id}"? לא ניתן לשחזר.`}
+        confirmLabel="מחיקה"
+        pending={deleteUser.isPending}
+        error={deleteUser.isError ? apiErrorMessage(deleteUser.error) : undefined}
+        onConfirm={() => deleteUser.mutate(user.id, { onSuccess: () => setConfirmDelete(false) })}
+      />
+    </>
+  );
+}
+
+const columnHelper = createColumnHelper<AdminUser>();
+
+const columns: ColumnDef<AdminUser, unknown>[] = [
+  columnHelper.display({
+    id: 'name',
+    header: 'שם',
+    cell: ({ row }) => row.original.displayName ?? '—',
+    meta: { align: 'start', className: 'font-medium' },
+  }),
+  columnHelper.display({
+    id: 'email',
+    header: 'אימייל',
+    cell: ({ row }) => row.original.email ?? '—',
+    meta: { align: 'start' },
+  }),
+  columnHelper.display({
+    id: 'role',
+    header: 'תפקיד',
+    cell: ({ row }) => <RoleCell user={row.original} />,
+    meta: { align: 'start' },
+  }),
+  columnHelper.display({
+    id: 'status',
+    header: 'סטטוס',
+    cell: ({ row }) =>
+      row.original.bannedAt !== null ? (
+        <Badge variant="destructive">מושעה</Badge>
+      ) : (
+        <Badge variant="outline">פעיל</Badge>
+      ),
+    meta: { align: 'start' },
+  }),
+  columnHelper.display({
+    id: 'actions',
+    header: 'פעולות',
+    cell: ({ row }) => <UserActionsCell user={row.original} />,
+    meta: { align: 'end' },
+  }),
+] as ColumnDef<AdminUser, unknown>[];
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
@@ -253,22 +284,7 @@ export default function AdminUsersPage() {
 
       {!isLoading && !isError && data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>שם</TableHead>
-                <TableHead>אימייל</TableHead>
-                <TableHead>תפקיד</TableHead>
-                <TableHead>סטטוס</TableHead>
-                <TableHead className="text-end">פעולות</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((user) => (
-                <UserRow key={user.id} user={user} />
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable columns={columns} data={data} />
         </div>
       )}
     </div>

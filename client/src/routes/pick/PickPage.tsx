@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { usePick, usePlayerElection, useSavePick } from '@/lib/pick/hooks';
-import type { Pick, PlayerElectionDetail } from '@/lib/pick/types';
+import type { Pick, PlayerElectionDetail, PlayerParty } from '@/lib/pick/types';
 import { Countdown } from '@/components/Countdown';
 import { useDarkSurface } from '@/components/candy/useDarkSurface';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
@@ -21,14 +21,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 
 const TOTAL = 120;
 
@@ -226,10 +220,35 @@ function PickForm({ election, pick }: { election: PlayerElectionDetail; pick: Pi
   );
 }
 
+const columnHelper = createColumnHelper<PlayerParty>();
+
 function FrozenView({ election, pick }: { election: PlayerElectionDetail; pick: Pick | null }) {
   const parties = [...election.parties].sort((a, b) => a.displayOrder - b.displayOrder);
   const byParty = new Map<string, number>();
   for (const e of pick?.entries ?? []) byParty.set(e.partyId, e.mandates);
+
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: 'party',
+        header: 'מפלגה',
+        cell: ({ row }) => (
+          <span className="flex items-center gap-3 font-medium">
+            <PartyLogo src={row.original.logoUrl} alt={row.original.nameHe} />
+            {row.original.nameHe}
+          </span>
+        ),
+        meta: { align: 'start' },
+      }),
+      columnHelper.display({
+        id: 'mandates',
+        header: 'מנדטים',
+        cell: ({ row }) => byParty.get(row.original.id) ?? 0,
+        meta: { align: 'end' },
+      }),
+    ],
+    [byParty],
+  ) as ColumnDef<PlayerParty, unknown>[];
 
   return (
     <Card>
@@ -243,25 +262,7 @@ function FrozenView({ election, pick }: { election: PlayerElectionDetail; pick: 
       </CardHeader>
       <CardContent>
         {pick ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>מפלגה</TableHead>
-                <TableHead className="text-left">מנדטים</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {parties.map((party) => (
-                <TableRow key={party.id}>
-                  <TableCell className="flex items-center gap-3 font-medium">
-                    <PartyLogo src={party.logoUrl} alt={party.nameHe} />
-                    {party.nameHe}
-                  </TableCell>
-                  <TableCell className="text-left">{byParty.get(party.id) ?? 0}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable columns={columns} data={parties} />
         ) : (
           <EmptyState icon={FileX} title="לא הגשת תחזית" />
         )}
