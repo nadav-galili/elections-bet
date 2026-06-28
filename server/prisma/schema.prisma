@@ -56,9 +56,10 @@ model Election {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  parties Party[]
-  picks   Pick[]
-  scores  Score[]
+  parties           Party[]
+  picks             Pick[]
+  scores            Score[]
+  forecastSnapshots ForecastSnapshot[]
 }
 
 model Party {
@@ -125,6 +126,28 @@ model Score {
 
   @@unique([userId, electionId])
   @@index([electionId, total])
+}
+
+// Materialized forecast — one current row per election (upserted), mirroring the
+// materialized Score pattern. Stopping per-request recompute: the public /forecast
+// page reads the latest snapshot and lazily refreshes past a freshness window
+// (see lib/forecast-snapshot.ts). The full computed forecast shape is stored as
+// Json (trimmed averages, bloc tally + call, largest-party call, movers,
+// participation count). Keeping one row per election means the rows also double as
+// a per-election archive (the app runs one election at a time).
+model ForecastSnapshot {
+  id               String   @id @default(cuid())
+  electionId       String   @unique
+  // The full computed Forecast shape, serialized. Read back as `Forecast`.
+  data             Json
+  // Participation count promoted to a column so it can be read/queried cheaply
+  // without deserializing the blob (mirrors Score.total being its own column).
+  participantCount Int      @default(0)
+  computedAt       DateTime @default(now())
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@index([electionId])
 }
 
 model Group {

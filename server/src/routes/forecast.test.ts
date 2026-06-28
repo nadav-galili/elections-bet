@@ -18,6 +18,11 @@ vi.mock('../db', () => ({
     election: { findFirst: vi.fn(), findUnique: vi.fn() },
     pick: { findMany: vi.fn() },
     party: { findMany: vi.fn() },
+    // The route now serves from a materialized snapshot. These existing tests want
+    // the route to render from the per-test pick/party mocks, so we keep the snapshot
+    // COLD (findUnique -> null) which makes getForecastSnapshot recompute from them,
+    // and accept the upsert that persists the result.
+    forecastSnapshot: { findUnique: vi.fn(), upsert: vi.fn() },
   },
 }));
 
@@ -30,6 +35,7 @@ const mocked = prisma as unknown as {
   election: Record<'findFirst' | 'findUnique', ReturnType<typeof vi.fn>>;
   pick: { findMany: ReturnType<typeof vi.fn> };
   party: { findMany: ReturnType<typeof vi.fn> };
+  forecastSnapshot: Record<'findUnique' | 'upsert', ReturnType<typeof vi.fn>>;
 };
 
 type Entry = { partyId: string; mandates: number };
@@ -44,6 +50,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Default: no parties (count-only behaviour) unless a test overrides it.
   mocked.party.findMany.mockResolvedValue([]);
+  // Keep the snapshot cold so the route recomputes from the per-test pick/party mocks.
+  mocked.forecastSnapshot.findUnique.mockResolvedValue(null);
+  mocked.forecastSnapshot.upsert.mockResolvedValue({});
 });
 
 describe('GET /forecast — canonical public page', () => {
@@ -281,6 +290,85 @@ describe('GET /forecast — canonical public page', () => {
     expect(res.text).toContain('אין בחירות פעילות');
     // No participation query when there is no election.
     expect(mocked.pick.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /forecast — served from the materialized snapshot', () => {
+  it('serves a FRESH stored snapshot without recomputing (no pick query)', async () => {
+    mocked.election.findFirst.mockResolvedValue({
+      id: 'e1',
+      nameHe: 'בחירות 2026',
+      blocALabel: 'הימין',
+      blocBLabel: 'השמאל',
+    });
+    // A fresh snapshot row (computedAt = now) carrying a full above-threshold forecast.
+    mocked.forecastSnapshot.findUnique.mockResolvedValue({
+      id: 's1',
+      electionId: 'e1',
+      participantCount: REVEAL_THRESHOLD,
+      computedAt: new Date(),
+      data: {
+        forecast: {
+          participantCount: REVEAL_THRESHOLD,
+          numbersVisible: true,
+          parties: [
+            { partyId: 'a', bloc: 'A', avgMandates: 65, delta: null },
+            { partyId: 'b', bloc: 'B', avgMandates: 55, delta: null },
+          ],
+          blocTally: { sumA: 65, sumB: 55 },
+          blocCall: 'A',
+          largestPartyIds: ['a'],
+          biggestGainers: [],
+          biggestLosers: [],
+        },
+        partyNames: { a: 'הליכוד', b: 'יש עתיד' },
+      },
+    });
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.status).toBe(200);
+    // Rendered from the snapshot blob: bloc verdict + mandate bar from stored numbers.
+    expect(res.text).toContain('הימין מקבל רוב');
+    expect(res.text).toContain('הליכוד');
+    // The route must NOT recompute: no pick/party reads, no re-persist.
+    expect(mocked.pick.findMany).not.toHaveBeenCalled();
+    expect(mocked.party.findMany).not.toHaveBeenCalled();
+    expect(mocked.forecastSnapshot.upsert).not.toHaveBeenCalled();
+  });
+
+  it('refreshes past the freshness window: recomputes and persists a new snapshot', async () => {
+    mocked.election.findFirst.mockResolvedValue({ id: 'e1', nameHe: 'בחירות 2026' });
+    // A STALE row (computedAt far in the past, beyond any TTL).
+    mocked.forecastSnapshot.findUnique.mockResolvedValue({
+      id: 's1',
+      electionId: 'e1',
+      participantCount: 1,
+      computedAt: new Date('2000-01-01T00:00:00Z'),
+      data: {
+        forecast: {
+          participantCount: 1,
+          numbersVisible: false,
+          parties: null,
+          blocTally: null,
+          blocCall: null,
+          largestPartyIds: null,
+          biggestGainers: null,
+          biggestLosers: null,
+        },
+        partyNames: {},
+      },
+    });
+    // Fresh DB state has more picks than the stale snapshot recorded.
+    mocked.pick.findMany.mockResolvedValue([submitted(), submitted(), submitted()]);
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.status).toBe(200);
+    // The refreshed count (3), not the stale 1, is rendered.
+    expect(res.text).toContain('3');
+    expect(res.text).toContain('ישראלים כבר ניבאו');
+    // It recomputed and re-persisted.
+    expect(mocked.pick.findMany).toHaveBeenCalledOnce();
+    expect(mocked.forecastSnapshot.upsert).toHaveBeenCalledOnce();
   });
 });
 

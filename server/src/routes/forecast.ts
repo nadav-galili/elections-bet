@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { env } from '../env';
 import { getActiveElection } from '../lib/election';
-import { computeForecast, type Forecast } from '../lib/forecast';
+import { type Forecast } from '../lib/forecast';
+import { getForecastSnapshot } from '../lib/forecast-snapshot';
 import { isLocked } from '../lib/time';
 
 // PUBLIC, server-rendered forecast page. Mounted OUTSIDE clerkMiddleware (top-level
@@ -345,27 +346,6 @@ function page(title: string, body: string): string {
 </html>`;
 }
 
-/**
- * Load an election's picks (with entries) + parties, then run the pure aggregator.
- * Returns the forecast plus a partyId->name lookup for the mandate bar. The DB read
- * lives here; computeForecast stays pure (gets the already-loaded data).
- */
-async function forecastFor(electionId: string) {
-  const [picks, parties] = await Promise.all([
-    prisma.pick.findMany({
-      where: { electionId },
-      select: { submittedAt: true, entries: { select: { partyId: true, mandates: true } } },
-    }),
-    prisma.party.findMany({
-      where: { electionId },
-      select: { id: true, nameHe: true, bloc: true, baselineMandates: true },
-    }),
-  ]);
-  const forecast = computeForecast(picks, parties);
-  const partyNames = new Map(parties.map((p) => [p.id, p.nameHe]));
-  return { forecast, partyNames };
-}
-
 // GET /forecast — canonical link, resolves to the active election.
 router.get('/', async (_req, res) => {
   const election = await getActiveElection();
@@ -373,7 +353,9 @@ router.get('/', async (_req, res) => {
     res.status(200).type('html').send(renderEmptyPage());
     return;
   }
-  const { forecast, partyNames } = await forecastFor(election.id);
+  // Served from the materialized snapshot (lazy refresh past the freshness window,
+  // single-flight on concurrent post-expiry reads) — NOT recomputed per request.
+  const { forecast, partyNames } = await getForecastSnapshot(election.id);
   res
     .status(200)
     .type('html')
@@ -401,7 +383,7 @@ router.get('/:electionId', async (req, res) => {
     res.status(404).type('html').send(renderEmptyPage());
     return;
   }
-  const { forecast, partyNames } = await forecastFor(election.id);
+  const { forecast, partyNames } = await getForecastSnapshot(election.id);
   res
     .status(200)
     .type('html')
