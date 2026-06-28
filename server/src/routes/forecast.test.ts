@@ -11,32 +11,39 @@ vi.mock('@clerk/express', () => ({
 }));
 
 // Prisma is stubbed per-test. The forecast route reads election.findFirst (active),
-// election.findUnique (archive URL), and pick.findMany (participation).
+// election.findUnique (archive URL), pick.findMany (participation + entries), and
+// party.findMany (bloc tags + names for the mandate bar).
 vi.mock('../db', () => ({
   prisma: {
     election: { findFirst: vi.fn(), findUnique: vi.fn() },
     pick: { findMany: vi.fn() },
+    party: { findMany: vi.fn() },
   },
 }));
 
 import { createApp } from '../app';
 import { prisma } from '../db';
 import { env } from '../env';
+import { REVEAL_THRESHOLD } from '../lib/forecast';
 
 const mocked = prisma as unknown as {
   election: Record<'findFirst' | 'findUnique', ReturnType<typeof vi.fn>>;
   pick: { findMany: ReturnType<typeof vi.fn> };
+  party: { findMany: ReturnType<typeof vi.fn> };
 };
 
-function submitted(): { submittedAt: Date | null } {
-  return { submittedAt: new Date('2026-01-01T00:00:00Z') };
+type Entry = { partyId: string; mandates: number };
+function submitted(entries: Entry[] = []): { submittedAt: Date | null; entries: Entry[] } {
+  return { submittedAt: new Date('2026-01-01T00:00:00Z'), entries };
 }
-function draft(): { submittedAt: Date | null } {
-  return { submittedAt: null };
+function draft(entries: Entry[] = []): { submittedAt: Date | null; entries: Entry[] } {
+  return { submittedAt: null, entries };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: no parties (count-only behaviour) unless a test overrides it.
+  mocked.party.findMany.mockResolvedValue([]);
 });
 
 describe('GET /forecast — canonical public page', () => {
@@ -86,6 +93,76 @@ describe('GET /forecast — canonical public page', () => {
 
     const res = await request(createApp()).get('/forecast');
     expect(res.text).toContain(`${env.CLIENT_ORIGIN}/elections/e1/pick`);
+  });
+
+  it('BELOW threshold: hides numbers end-to-end (no bloc verdict, no mandate bar)', async () => {
+    mocked.election.findFirst.mockResolvedValue({
+      id: 'e1',
+      nameHe: 'בחירות 2026',
+      blocALabel: 'הימין',
+      blocBLabel: 'השמאל',
+    });
+    mocked.party.findMany.mockResolvedValue([
+      { id: 'a', nameHe: 'הליכוד', bloc: 'A' },
+      { id: 'b', nameHe: 'יש עתיד', bloc: 'B' },
+    ]);
+    // A handful of submitted picks — well under REVEAL_THRESHOLD.
+    mocked.pick.findMany.mockResolvedValue([
+      submitted([
+        { partyId: 'a', mandates: 70 },
+        { partyId: 'b', mandates: 50 },
+      ]),
+      submitted([
+        { partyId: 'a', mandates: 70 },
+        { partyId: 'b', mandates: 50 },
+      ]),
+    ]);
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.status).toBe(200);
+    // Count hero shows; the bloc verdict + mandate bar must NOT leak.
+    expect(res.text).toContain('ישראלים כבר ניבאו');
+    expect(res.text).not.toContain('תחזית המנדטים');
+    expect(res.text).not.toContain('מקבל רוב');
+    expect(res.text).not.toContain('הליכוד');
+  });
+
+  it('AT/ABOVE threshold: bloc verdict is the hero and the mandate bar renders with the largest party highlighted', async () => {
+    mocked.election.findFirst.mockResolvedValue({
+      id: 'e1',
+      nameHe: 'בחירות 2026',
+      blocALabel: 'הימין',
+      blocBLabel: 'השמאל',
+    });
+    mocked.party.findMany.mockResolvedValue([
+      { id: 'a', nameHe: 'הליכוד', bloc: 'A' },
+      { id: 'b', nameHe: 'יש עתיד', bloc: 'B' },
+      { id: 'c', nameHe: 'רעם', bloc: 'UNALIGNED' },
+    ]);
+    // Exactly REVEAL_THRESHOLD identical submitted picks: A bloc = 65 ⇒ call A;
+    // largest party is "a" (הליכוד).
+    const entries: Entry[] = [
+      { partyId: 'a', mandates: 65 },
+      { partyId: 'b', mandates: 40 },
+      { partyId: 'c', mandates: 15 },
+    ];
+    mocked.pick.findMany.mockResolvedValue(
+      Array.from({ length: REVEAL_THRESHOLD }, () => submitted(entries)),
+    );
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.status).toBe(200);
+    // Bloc verdict hero: A bloc (הימין) gets a majority.
+    expect(res.text).toContain('הימין מקבל רוב');
+    // Mandate bar renders all parties.
+    expect(res.text).toContain('תחזית המנדטים');
+    expect(res.text).toContain('הליכוד');
+    expect(res.text).toContain('יש עתיד');
+    expect(res.text).toContain('רעם');
+    // Largest party highlighted (is-top class on its row).
+    expect(res.text).toMatch(/bar-row is-top[\s\S]*?הליכוד/);
+    // The count-as-hero line is replaced by the verdict.
+    expect(res.text).not.toContain('ישראלים כבר ניבאו');
   });
 
   it('no active election: graceful 200 empty page', async () => {

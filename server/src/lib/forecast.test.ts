@@ -1,9 +1,29 @@
 import { describe, it, expect } from 'vitest';
-import { computeForecast, type ForecastPickInput } from './forecast';
+import {
+  computeForecast,
+  REVEAL_THRESHOLD,
+  type ForecastParty,
+  type ForecastPickEntry,
+  type ForecastPickInput,
+} from './forecast';
 
-// Helper: build a pick input with a given submittedAt (defaults to submitted).
-function pick(submittedAt: Date | null = new Date('2026-01-01T00:00:00Z')): ForecastPickInput {
-  return { submittedAt };
+// Helper: build a pick input with a given submittedAt + entries.
+function pick(
+  submittedAt: Date | null = new Date('2026-01-01T00:00:00Z'),
+  entries: ForecastPickEntry[] = [],
+): ForecastPickInput {
+  return { submittedAt, entries };
+}
+
+// Helper: a party with a bloc tag.
+function party(id: string, bloc: ForecastParty['bloc'] = 'UNALIGNED'): ForecastParty {
+  return { id, bloc };
+}
+
+// Build N identical submitted picks from a partyId->mandates map.
+function nPicks(n: number, mandates: Record<string, number>): ForecastPickInput[] {
+  const entries = Object.entries(mandates).map(([partyId, m]) => ({ partyId, mandates: m }));
+  return Array.from({ length: n }, () => pick(new Date('2026-01-01T00:00:00Z'), entries));
 }
 
 describe('computeForecast — participation count', () => {
@@ -19,7 +39,6 @@ describe('computeForecast — participation count', () => {
 
 describe('computeForecast — eligibility filtering', () => {
   it('excludes drafts (submittedAt === null)', () => {
-    // 2 submitted + 2 drafts ⇒ only the 2 submitted count.
     const res = computeForecast([pick(), pick(null), pick(), pick(null)]);
     expect(res.participantCount).toBe(2);
   });
@@ -30,9 +49,142 @@ describe('computeForecast — eligibility filtering', () => {
   });
 });
 
-describe('computeForecast — numbersVisible', () => {
-  it('is always false in this slice (count is the hero, no numbers leak)', () => {
-    expect(computeForecast([]).numbersVisible).toBe(false);
-    expect(computeForecast([pick(), pick()]).numbersVisible).toBe(false);
+describe('computeForecast — numbersVisible threshold gating', () => {
+  it('withholds all numbers below the threshold (count only)', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD - 1, { a: 120 }), [party('a', 'A')]);
+    expect(res.numbersVisible).toBe(false);
+    expect(res.participantCount).toBe(REVEAL_THRESHOLD - 1);
+    expect(res.parties).toBeNull();
+    expect(res.blocTally).toBeNull();
+    expect(res.blocCall).toBeNull();
+    expect(res.largestPartyIds).toBeNull();
+  });
+
+  it('reveals numbers exactly AT the threshold (boundary)', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 120 }), [party('a', 'A')]);
+    expect(res.numbersVisible).toBe(true);
+    expect(res.parties).not.toBeNull();
+    expect(res.blocCall).not.toBeNull();
+  });
+
+  it('drafts do not count toward crossing the threshold', () => {
+    // REVEAL_THRESHOLD-1 submitted + 5 drafts ⇒ still below ⇒ hidden.
+    const submitted = nPicks(REVEAL_THRESHOLD - 1, { a: 120 });
+    const drafts = Array.from({ length: 5 }, () => pick(null, [{ partyId: 'a', mandates: 120 }]));
+    const res = computeForecast([...submitted, ...drafts], [party('a', 'A')]);
+    expect(res.numbersVisible).toBe(false);
+  });
+});
+
+describe('computeForecast — trimmed stats resist a cluster vs a raw mean', () => {
+  it('a coordinated cluster of extreme picks moves the trimmed average far less than a raw mean would', () => {
+    // 90% of the crowd predicts party "a" at 30; a coordinated 10% cluster screams 120.
+    const honest = nPicks(Math.round(REVEAL_THRESHOLD * 0.9), { a: 30, b: 90 });
+    const cluster = nPicks(REVEAL_THRESHOLD - Math.round(REVEAL_THRESHOLD * 0.9), { a: 120, b: 0 });
+    const all = [...honest, ...cluster];
+
+    const res = computeForecast(all, [party('a', 'A'), party('b', 'B')]);
+    const avgA = res.parties!.find((p) => p.partyId === 'a')!.avgMandates;
+
+    // Raw mean would be 0.9*30 + 0.1*120 = 39. The 10% trim drops the top tail (the
+    // 120 cluster) entirely, so the trimmed mean snaps back to the honest 30.
+    const rawMean = 0.9 * 30 + 0.1 * 120;
+    expect(rawMean).toBeCloseTo(39, 5);
+    expect(avgA).toBe(30);
+    expect(avgA).toBeLessThan(rawMean - 5);
+  });
+
+  it('with a symmetric, un-clustered crowd the trimmed mean equals the central value', () => {
+    // Everyone agrees on 40 ⇒ trimming changes nothing.
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 40 }), [party('a', 'A')]);
+    expect(res.parties!.find((p) => p.partyId === 'a')!.avgMandates).toBe(40);
+  });
+});
+
+describe('computeForecast — bloc tally + 3-way call boundaries', () => {
+  it('A ≥ 61 ⇒ call A', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 61, b: 40, c: 19 }), [
+      party('a', 'A'),
+      party('b', 'B'),
+      party('c', 'UNALIGNED'),
+    ]);
+    expect(res.blocTally).toEqual({ sumA: 61, sumB: 40 });
+    expect(res.blocCall).toBe('A');
+  });
+
+  it('B ≥ 61 ⇒ call B', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 40, b: 61, c: 19 }), [
+      party('a', 'A'),
+      party('b', 'B'),
+      party('c', 'UNALIGNED'),
+    ]);
+    expect(res.blocCall).toBe('B');
+  });
+
+  it('neither bloc reaches 61 ⇒ HUNG', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 50, b: 50, c: 20 }), [
+      party('a', 'A'),
+      party('b', 'B'),
+      party('c', 'UNALIGNED'),
+    ]);
+    expect(res.blocCall).toBe('HUNG');
+  });
+
+  it('exactly 60 in a bloc is still HUNG (boundary just below)', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 60, b: 40, c: 20 }), [
+      party('a', 'A'),
+      party('b', 'B'),
+      party('c', 'UNALIGNED'),
+    ]);
+    expect(res.blocCall).toBe('HUNG');
+  });
+
+  it('UNALIGNED mandates never tip a bloc', () => {
+    // A=55, UNALIGNED=65: if UNALIGNED counted, "A side" would win; it must not.
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 55, c: 65 }), [
+      party('a', 'A'),
+      party('c', 'UNALIGNED'),
+    ]);
+    expect(res.blocTally).toEqual({ sumA: 55, sumB: 0 });
+    expect(res.blocCall).toBe('HUNG');
+  });
+});
+
+describe('computeForecast — largest-party call (ties allowed)', () => {
+  it('single clear largest', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 50, b: 40, c: 30 }), [
+      party('a', 'A'),
+      party('b', 'B'),
+      party('c', 'UNALIGNED'),
+    ]);
+    expect(res.largestPartyIds).toEqual(['a']);
+    // Sorted descending by average.
+    expect(res.parties!.map((p) => p.partyId)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('tie at the top returns every tied party', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 45, b: 45, c: 30 }), [
+      party('a', 'A'),
+      party('b', 'B'),
+      party('c', 'UNALIGNED'),
+    ]);
+    expect(res.largestPartyIds!.sort()).toEqual(['a', 'b']);
+  });
+
+  it('all-zero averages ⇒ no largest party', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, {}), [party('a', 'A'), party('b', 'B')]);
+    expect(res.largestPartyIds).toEqual([]);
+  });
+});
+
+describe('computeForecast — missing entries treated as 0', () => {
+  it('a pick missing a party contributes 0 mandates for that party', () => {
+    // Half predict b=20, half omit b entirely. Trimmed mean should drop toward 0.
+    const withB = nPicks(REVEAL_THRESHOLD / 2, { a: 100, b: 20 });
+    const withoutB = nPicks(REVEAL_THRESHOLD / 2, { a: 120 });
+    const res = computeForecast([...withB, ...withoutB], [party('a', 'A'), party('b', 'B')]);
+    const avgB = res.parties!.find((p) => p.partyId === 'b')!.avgMandates;
+    // Trimming the top tail (the 20s) on a half-zero distribution yields 0.
+    expect(avgB).toBeLessThan(20);
   });
 });

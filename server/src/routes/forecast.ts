@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { env } from '../env';
 import { getActiveElection } from '../lib/election';
-import { computeForecast } from '../lib/forecast';
+import { computeForecast, type Forecast } from '../lib/forecast';
 
 // PUBLIC, server-rendered forecast page. Mounted OUTSIDE clerkMiddleware (top-level
 // in app.ts, like /health) so it needs no auth — shareable links must open for
@@ -32,19 +32,75 @@ function renderEmptyPage(): string {
   );
 }
 
+/** Hebrew label for a derived bloc call, using the election's own bloc labels. */
+function blocVerdictText(
+  call: 'A' | 'B' | 'HUNG',
+  blocALabel: string | null,
+  blocBLabel: string | null,
+): string {
+  const aName = blocALabel?.trim() || 'גוש א׳';
+  const bName = blocBLabel?.trim() || 'גוש ב׳';
+  if (call === 'A') return `${aName} מקבל רוב`;
+  if (call === 'B') return `${bName} מקבל רוב`;
+  return 'אף גוש לא מקבל רוב';
+}
+
 /**
- * The forecast page for a resolved election. The participation count is the hero
- * (numbers/bloc verdict are out of this slice); the framing is permanent; the CTA
- * deep-links into the SPA pick route on the SPA origin (a separate origin).
+ * The forecast page for a resolved election.
+ *
+ * Below the reveal threshold (`numbersVisible=false`) the participation count is the
+ * hero and no numbers leak. At/above it, the bloc verdict becomes the hero and the
+ * trimmed mandate forecast bar renders (largest party highlighted). The framing is
+ * permanent; the CTA deep-links into the SPA pick route on the SPA origin.
  */
-function renderForecastPage(electionId: string, nameHe: string, participantCount: number): string {
+function renderForecastPage(
+  electionId: string,
+  nameHe: string,
+  forecast: Forecast,
+  partyNames: Map<string, string>,
+  blocALabel: string | null,
+  blocBLabel: string | null,
+): string {
   const pickUrl = `${env.CLIENT_ORIGIN}/elections/${encodeURIComponent(electionId)}/pick`;
+
+  let hero: string;
+  let numbers = '';
+  if (forecast.numbersVisible && forecast.parties && forecast.blocCall) {
+    // ABOVE threshold: bloc verdict is the hero, mandate bar below it.
+    const largest = new Set(forecast.largestPartyIds ?? []);
+    const maxAvg = forecast.parties.reduce((m, p) => Math.max(m, p.avgMandates), 0) || 1;
+    const rows = forecast.parties
+      .map((p) => {
+        const name = partyNames.get(p.partyId) ?? p.partyId;
+        const pct = Math.max(2, Math.round((p.avgMandates / maxAvg) * 100));
+        const isTop = largest.has(p.partyId);
+        return `
+        <li class="bar-row${isTop ? ' is-top' : ''}">
+          <span class="bar-name">${esc(name)}</span>
+          <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
+          <span class="bar-val">${p.avgMandates.toLocaleString('he-IL')}</span>
+        </li>`;
+      })
+      .join('');
+    hero = `
+        <p class="eyebrow">${esc(nameHe)} · לפי ${forecast.participantCount.toLocaleString('he-IL')} תחזיות</p>
+        <p class="hero-verdict">${esc(blocVerdictText(forecast.blocCall, blocALabel, blocBLabel))}</p>`;
+    numbers = `
+        <p class="bar-title">תחזית המנדטים (ממוצע מנוכה)</p>
+        <ul class="bar-list">${rows}</ul>`;
+  } else {
+    // BELOW threshold: participation count is the hero, no numbers.
+    hero = `
+        <p class="eyebrow">${esc(nameHe)}</p>
+        <p class="hero-count"><span class="count">${forecast.participantCount.toLocaleString('he-IL')}</span> ישראלים כבר ניבאו</p>`;
+  }
+
   return page(
     `תחזית בחירות — ${esc(nameHe)}`,
     `
       <main class="card">
-        <p class="eyebrow">${esc(nameHe)}</p>
-        <p class="hero-count"><span class="count">${participantCount.toLocaleString('he-IL')}</span> ישראלים כבר ניבאו</p>
+        ${hero}
+        ${numbers}
         <p class="framing">זה משחק, לא סקר. ניחוש מנדטים בין חברים — בלי כסף, רק נקודות וכבוד.</p>
         <a class="cta" href="${esc(pickUrl)}">נסו לנחש גם אתם</a>
       </main>
@@ -136,19 +192,89 @@ function page(title: string, body: string): string {
         padding: 14px 28px;
         border-radius: 16px;
       }
+      .hero-verdict {
+        font-family: 'Fredoka', 'Heebo', sans-serif;
+        font-weight: 700;
+        font-size: 30px;
+        color: var(--primary);
+        margin: 0 0 20px;
+        line-height: 1.2;
+      }
+      .bar-title {
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin: 0 0 12px;
+      }
+      .bar-list {
+        list-style: none;
+        margin: 0 0 24px;
+        padding: 0;
+        text-align: start;
+      }
+      .bar-row {
+        display: grid;
+        grid-template-columns: minmax(72px, 28%) 1fr auto;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 10px;
+      }
+      .bar-name {
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .bar-track {
+        background: var(--background);
+        border-radius: 8px;
+        height: 14px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        display: block;
+        height: 100%;
+        background: var(--primary);
+        border-radius: 8px;
+      }
+      .bar-val {
+        font-family: 'Fredoka', 'Heebo', sans-serif;
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--text-secondary);
+        min-width: 36px;
+        text-align: start;
+      }
+      .bar-row.is-top .bar-name { font-weight: 700; }
+      .bar-row.is-top .bar-fill { background: var(--accent); }
+      .bar-row.is-top .bar-val { color: var(--accent); }
     </style>
   </head>
   <body>${body}</body>
 </html>`;
 }
 
-/** Count submitted (eligible) picks for an election, then run the pure aggregator. */
+/**
+ * Load an election's picks (with entries) + parties, then run the pure aggregator.
+ * Returns the forecast plus a partyId->name lookup for the mandate bar. The DB read
+ * lives here; computeForecast stays pure (gets the already-loaded data).
+ */
 async function forecastFor(electionId: string) {
-  const picks = await prisma.pick.findMany({
-    where: { electionId },
-    select: { submittedAt: true },
-  });
-  return computeForecast(picks);
+  const [picks, parties] = await Promise.all([
+    prisma.pick.findMany({
+      where: { electionId },
+      select: { submittedAt: true, entries: { select: { partyId: true, mandates: true } } },
+    }),
+    prisma.party.findMany({
+      where: { electionId },
+      select: { id: true, nameHe: true, bloc: true },
+    }),
+  ]);
+  const forecast = computeForecast(picks, parties);
+  const partyNames = new Map(parties.map((p) => [p.id, p.nameHe]));
+  return { forecast, partyNames };
 }
 
 // GET /forecast — canonical link, resolves to the active election.
@@ -158,11 +284,20 @@ router.get('/', async (_req, res) => {
     res.status(200).type('html').send(renderEmptyPage());
     return;
   }
-  const { participantCount } = await forecastFor(election.id);
+  const { forecast, partyNames } = await forecastFor(election.id);
   res
     .status(200)
     .type('html')
-    .send(renderForecastPage(election.id, election.nameHe, participantCount));
+    .send(
+      renderForecastPage(
+        election.id,
+        election.nameHe,
+        forecast,
+        partyNames,
+        election.blocALabel,
+        election.blocBLabel,
+      ),
+    );
 });
 
 // GET /forecast/:electionId — stable per-election archive URL so shared links persist.
@@ -170,17 +305,26 @@ router.get('/:electionId', async (req, res) => {
   const electionId = String(req.params.electionId);
   const election = await prisma.election.findUnique({
     where: { id: electionId },
-    select: { id: true, nameHe: true },
+    select: { id: true, nameHe: true, blocALabel: true, blocBLabel: true },
   });
   if (!election) {
     res.status(404).type('html').send(renderEmptyPage());
     return;
   }
-  const { participantCount } = await forecastFor(election.id);
+  const { forecast, partyNames } = await forecastFor(election.id);
   res
     .status(200)
     .type('html')
-    .send(renderForecastPage(election.id, election.nameHe, participantCount));
+    .send(
+      renderForecastPage(
+        election.id,
+        election.nameHe,
+        forecast,
+        partyNames,
+        election.blocALabel,
+        election.blocBLabel,
+      ),
+    );
 });
 
 export default router;
