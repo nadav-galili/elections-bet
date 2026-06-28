@@ -1,7 +1,9 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import { clerkMiddleware } from '@clerk/express';
-import { env } from './env';
+import { env, serveClient } from './env';
 import { errorHandler, notFound } from './middleware/error';
 import healthRouter from './routes/health';
 import forecastRouter from './routes/forecast';
@@ -52,6 +54,27 @@ export function createApp() {
   // is therefore not load-bearing — it's kept tidy alongside the other /api routers.
   app.use('/api', leaderboardRouter);
   app.use('/api/admin', adminRouter);
+
+  // Single-origin deploy (e.g. Railway): serve the built SPA and fall back to
+  // index.html for client-side routes. Mounted AFTER /api, /health and
+  // /forecast so those keep precedence; unknown /api/* paths still fall through
+  // to the JSON 404 below. Off in dev/tests (Vite serves the client there).
+  if (serveClient) {
+    const clientDist =
+      env.CLIENT_DIST ?? path.resolve(fileURLToPath(import.meta.url), '../../../client/dist');
+    app.use(express.static(clientDist));
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      if (
+        req.path.startsWith('/api') ||
+        req.path.startsWith('/health') ||
+        req.path.startsWith('/forecast')
+      ) {
+        return next();
+      }
+      res.sendFile(path.join(clientDist, 'index.html'));
+    });
+  }
 
   app.use(notFound);
   app.use(errorHandler);
