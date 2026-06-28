@@ -47,6 +47,48 @@ function blocVerdictText(
 }
 
 /**
+ * The "biggest movers" section: the crowd's gains/losses vs each party's baseline.
+ * Rendered only above the threshold, alongside the mandate bar. Withheld entirely
+ * when no party has a baseline (both lists empty). A baseline of 0 surfaces as a
+ * brand-new entrant (delta == the full forecast).
+ */
+function renderMovers(forecast: Forecast, partyNames: Map<string, string>): string {
+  const gainers = forecast.biggestGainers ?? [];
+  const losers = forecast.biggestLosers ?? [];
+  if (gainers.length === 0 && losers.length === 0) return '';
+
+  const moverRow = (m: { partyId: string; delta: number }, dir: 'up' | 'down'): string => {
+    const name = partyNames.get(m.partyId) ?? m.partyId;
+    const sign = m.delta > 0 ? '+' : '−';
+    const mag = Math.abs(m.delta).toLocaleString('he-IL');
+    return `
+        <li class="mover-row mover-${dir}">
+          <span class="mover-name">${esc(name)}</span>
+          <span class="mover-delta">${sign}${mag}</span>
+        </li>`;
+  };
+
+  const gainList =
+    gainers.length > 0
+      ? `<div class="mover-col">
+          <p class="mover-head">העולים</p>
+          <ul class="mover-list">${gainers.map((m) => moverRow(m, 'up')).join('')}</ul>
+        </div>`
+      : '';
+  const loseList =
+    losers.length > 0
+      ? `<div class="mover-col">
+          <p class="mover-head">היורדים</p>
+          <ul class="mover-list">${losers.map((m) => moverRow(m, 'down')).join('')}</ul>
+        </div>`
+      : '';
+
+  return `
+        <p class="bar-title">התנועה הגדולה ביותר (מול הבסיס)</p>
+        <div class="movers">${gainList}${loseList}</div>`;
+}
+
+/**
  * The forecast page for a resolved election.
  *
  * Below the reveal threshold (`numbersVisible=false`) the participation count is the
@@ -97,7 +139,7 @@ function renderForecastPage(
         <p class="hero-verdict">${esc(blocVerdictText(forecast.blocCall, blocALabel, blocBLabel))}</p>`;
     numbers = `
         <p class="bar-title">תחזית המנדטים (ממוצע מנוכה)</p>
-        <ul class="bar-list">${rows}</ul>`;
+        <ul class="bar-list">${rows}</ul>${renderMovers(forecast, partyNames)}`;
   } else {
     // BELOW threshold: participation count is the hero, no numbers.
     hero = `
@@ -260,6 +302,43 @@ function page(title: string, body: string): string {
       .bar-row.is-top .bar-name { font-weight: 700; }
       .bar-row.is-top .bar-fill { background: var(--accent); }
       .bar-row.is-top .bar-val { color: var(--accent); }
+      .movers {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 0 0 24px;
+        text-align: start;
+      }
+      .movers:has(.mover-col:only-child) { grid-template-columns: 1fr; }
+      .mover-head {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        margin: 0 0 8px;
+      }
+      .mover-list { list-style: none; margin: 0; padding: 0; }
+      .mover-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 0 0 6px;
+        font-size: 15px;
+      }
+      .mover-name {
+        font-weight: 500;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mover-delta {
+        font-family: 'Fredoka', 'Heebo', sans-serif;
+        font-weight: 700;
+        font-size: 16px;
+      }
+      .mover-up .mover-delta { color: #16a34a; }
+      .mover-down .mover-delta { color: #dc2626; }
     </style>
   </head>
   <body>${body}</body>
@@ -279,7 +358,7 @@ async function forecastFor(electionId: string) {
     }),
     prisma.party.findMany({
       where: { electionId },
-      select: { id: true, nameHe: true, bloc: true },
+      select: { id: true, nameHe: true, bloc: true, baselineMandates: true },
     }),
   ]);
   const forecast = computeForecast(picks, parties);

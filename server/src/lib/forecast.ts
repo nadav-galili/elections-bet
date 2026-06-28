@@ -41,6 +41,14 @@ export type { Bloc };
 export interface ForecastParty {
   id: string;
   bloc: Bloc;
+  /**
+   * Prior baseline mandates for the "biggest movers" story, or null. null ⇒ no delta
+   * is emitted (we don't pretend to know the prior). 0 ⇒ a brand-new entrant, so the
+   * delta equals the full forecast ("predicted to enter with N"). Positive ⇒ the prior
+   * baseline (admin judgment on renames/merges/splits). Defaults to null for callers
+   * (existing tests) that don't supply it.
+   */
+  baselineMandates?: number | null;
 }
 
 /** A single party prediction within a pick: partyId -> mandates. */
@@ -67,6 +75,21 @@ export interface PartyForecast {
   bloc: Bloc;
   /** Trimmed-mean predicted mandates across eligible picks (1 decimal place). */
   avgMandates: number;
+  /**
+   * Crowd movement vs the party's prior baseline (`avgMandates − baselineMandates`,
+   * 1 decimal place), or null when no baseline is set. A baseline of 0 yields a delta
+   * equal to the full forecast (a brand-new entrant). Positive ⇒ gain, negative ⇒ loss.
+   */
+  delta: number | null;
+}
+
+/** A party's movement vs baseline, for the "biggest movers" lists. */
+export interface PartyMover {
+  partyId: string;
+  bloc: Bloc;
+  avgMandates: number;
+  /** Non-null by construction (movers only exist for parties with a baseline). */
+  delta: number;
 }
 
 /** The 3-way bloc outcome derived from the crowd's predicted bloc tallies. */
@@ -95,7 +118,20 @@ export interface Forecast {
    * no party has a positive average. Null until numbersVisible.
    */
   largestPartyIds: string[] | null;
+  /**
+   * Biggest gainers vs baseline (delta > 0), most positive first. Only parties with a
+   * non-null baseline are eligible. Empty when none gained. Null until numbersVisible.
+   */
+  biggestGainers: PartyMover[] | null;
+  /**
+   * Biggest losers vs baseline (delta < 0), most negative first. Only parties with a
+   * non-null baseline are eligible. Empty when none lost. Null until numbersVisible.
+   */
+  biggestLosers: PartyMover[] | null;
 }
+
+/** How many movers to surface in each direction. */
+export const MAX_MOVERS = 3;
 
 /** Round to one decimal place (e.g. 12.34 ⇒ 12.3). */
 function round1(n: number): number {
@@ -145,6 +181,8 @@ export function computeForecast(
       blocTally: null,
       blocCall: null,
       largestPartyIds: null,
+      biggestGainers: null,
+      biggestLosers: null,
     };
   }
 
@@ -160,12 +198,14 @@ export function computeForecast(
     }
   }
 
-  // Trimmed average per party.
-  const partyForecasts: PartyForecast[] = parties.map((party) => ({
-    partyId: party.id,
-    bloc: party.bloc,
-    avgMandates: round1(trimmedMean(valuesByParty.get(party.id)!, TRIM_FRACTION)),
-  }));
+  // Trimmed average per party, plus the movement vs baseline. A null baseline ⇒ no
+  // delta (don't invent a prior); a baseline of 0 ⇒ delta == the full forecast.
+  const partyForecasts: PartyForecast[] = parties.map((party) => {
+    const avgMandates = round1(trimmedMean(valuesByParty.get(party.id)!, TRIM_FRACTION));
+    const baseline = party.baselineMandates;
+    const delta = baseline == null ? null : round1(avgMandates - baseline);
+    return { partyId: party.id, bloc: party.bloc, avgMandates, delta };
+  });
 
   // Sort descending by average, ties broken by partyId for determinism.
   partyForecasts.sort(
@@ -191,6 +231,26 @@ export function computeForecast(
       ? partyForecasts.filter((pf) => pf.avgMandates === maxAvg).map((pf) => pf.partyId)
       : [];
 
+  // Biggest movers: only parties with a baseline (delta != null). Gainers (delta > 0)
+  // most-positive first; losers (delta < 0) most-negative first. Ties broken by partyId
+  // for determinism. Capped at MAX_MOVERS each.
+  const withDelta: PartyMover[] = partyForecasts
+    .filter((pf): pf is PartyForecast & { delta: number } => pf.delta != null)
+    .map((pf) => ({
+      partyId: pf.partyId,
+      bloc: pf.bloc,
+      avgMandates: pf.avgMandates,
+      delta: pf.delta,
+    }));
+  const biggestGainers = withDelta
+    .filter((m) => m.delta > 0)
+    .sort((a, b) => b.delta - a.delta || a.partyId.localeCompare(b.partyId))
+    .slice(0, MAX_MOVERS);
+  const biggestLosers = withDelta
+    .filter((m) => m.delta < 0)
+    .sort((a, b) => a.delta - b.delta || a.partyId.localeCompare(b.partyId))
+    .slice(0, MAX_MOVERS);
+
   return {
     participantCount,
     numbersVisible: true,
@@ -198,5 +258,7 @@ export function computeForecast(
     blocTally: { sumA, sumB },
     blocCall,
     largestPartyIds,
+    biggestGainers,
+    biggestLosers,
   };
 }

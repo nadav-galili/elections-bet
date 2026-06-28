@@ -69,6 +69,10 @@ model Party {
   bloc           Bloc    @default(UNALIGNED)
   displayOrder   Int     @default(0)
   actualMandates Int?
+  // Per-party prior baseline for the "biggest movers" story. null = show no delta;
+  // 0 = brand-new entrant (delta reads as the full forecast); positive = prior
+  // baseline (admin judgment on renames/merges/splits).
+  baselineMandates Int?
 
   election    Election    @relation(fields: [electionId], references: [id], onDelete: Cascade)
   pickEntries PickEntry[]

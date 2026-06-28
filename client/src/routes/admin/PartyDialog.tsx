@@ -40,6 +40,11 @@ const schema = z.object({
     .number({ message: 'יש להזין מספר' })
     .int('יש להזין מספר שלם')
     .min(0, 'הסדר לא יכול להיות שלילי'),
+  // Free-text so '' clears the baseline (=> null => no delta). Otherwise a
+  // non-negative integer; 0 marks a brand-new entrant.
+  baselineMandates: z
+    .string()
+    .refine((s) => s.trim() === '' || /^\d+$/.test(s.trim()), 'יש להזין מספר שלם אי-שלילי'),
 });
 
 type FormValues = z.input<typeof schema>;
@@ -69,6 +74,7 @@ export function PartyDialog({
       logoUrl: '',
       bloc: 'UNALIGNED',
       displayOrder: 0,
+      baselineMandates: '',
     },
   });
 
@@ -80,17 +86,20 @@ export function PartyDialog({
       logoUrl: party?.logoUrl ?? '',
       bloc: party?.bloc ?? 'UNALIGNED',
       displayOrder: party?.displayOrder ?? 0,
+      baselineMandates: party?.baselineMandates == null ? '' : String(party.baselineMandates),
     });
   }, [open, party, form]);
 
   const mutation = isEdit ? updateParty : createParty;
 
   const onSubmit = form.handleSubmit((values) => {
+    const baseline = values.baselineMandates.trim();
     const payload = {
       nameHe: values.nameHe.trim(),
       logoUrl: values.logoUrl.trim() || null,
       bloc: values.bloc,
       displayOrder: Number(values.displayOrder),
+      baselineMandates: baseline === '' ? null : Number(baseline),
     };
 
     if (isEdit && party) {
@@ -174,6 +183,26 @@ export function PartyDialog({
                   <FormLabel>סדר תצוגה</FormLabel>
                   <FormControl>
                     <Input type="number" min={0} {...field} value={field.value as number} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="baselineMandates"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>בסיס מנדטים (אופציונלי)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      placeholder="ריק = ללא שינוי; 0 = מפלגה חדשה"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

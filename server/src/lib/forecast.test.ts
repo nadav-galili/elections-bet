@@ -15,9 +15,13 @@ function pick(
   return { submittedAt, entries };
 }
 
-// Helper: a party with a bloc tag.
-function party(id: string, bloc: ForecastParty['bloc'] = 'UNALIGNED'): ForecastParty {
-  return { id, bloc };
+// Helper: a party with a bloc tag (and optional baseline for movers tests).
+function party(
+  id: string,
+  bloc: ForecastParty['bloc'] = 'UNALIGNED',
+  baselineMandates: number | null = null,
+): ForecastParty {
+  return { id, bloc, baselineMandates };
 }
 
 // Build N identical submitted picks from a partyId->mandates map.
@@ -174,6 +178,91 @@ describe('computeForecast — largest-party call (ties allowed)', () => {
   it('all-zero averages ⇒ no largest party', () => {
     const res = computeForecast(nPicks(REVEAL_THRESHOLD, {}), [party('a', 'A'), party('b', 'B')]);
     expect(res.largestPartyIds).toEqual([]);
+  });
+});
+
+describe('computeForecast — per-party delta vs baseline', () => {
+  it('null baseline ⇒ no delta', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 30, b: 90 }), [
+      party('a', 'A', null),
+      party('b', 'B', null),
+    ]);
+    expect(res.parties!.every((p) => p.delta === null)).toBe(true);
+  });
+
+  it('baseline 0 ⇒ delta equals the full forecast (brand-new entrant)', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 18, b: 102 }), [
+      party('a', 'A', 0),
+      party('b', 'B', 30),
+    ]);
+    const a = res.parties!.find((p) => p.partyId === 'a')!;
+    // avg 18, baseline 0 ⇒ delta == avg.
+    expect(a.avgMandates).toBe(18);
+    expect(a.delta).toBe(18);
+  });
+
+  it('positive baseline ⇒ delta = trimmedAvg − baseline (gain and loss)', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 40, b: 80 }), [
+      party('a', 'A', 30), // 40 - 30 = +10
+      party('b', 'B', 95), // 80 - 95 = -15
+    ]);
+    const a = res.parties!.find((p) => p.partyId === 'a')!;
+    const b = res.parties!.find((p) => p.partyId === 'b')!;
+    expect(a.delta).toBe(10);
+    expect(b.delta).toBe(-15);
+  });
+});
+
+describe('computeForecast — biggest movers', () => {
+  it('only parties with a non-null baseline are eligible to move', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 50, b: 40, c: 30 }), [
+      party('a', 'A', 30), // +20 gainer
+      party('b', 'B', null), // no baseline ⇒ never a mover
+      party('c', 'UNALIGNED', 50), // -20 loser
+    ]);
+    expect(res.biggestGainers!.map((m) => m.partyId)).toEqual(['a']);
+    expect(res.biggestLosers!.map((m) => m.partyId)).toEqual(['c']);
+    // b (no baseline) appears in neither list.
+    const allMoverIds = [...res.biggestGainers!, ...res.biggestLosers!].map((m) => m.partyId);
+    expect(allMoverIds).not.toContain('b');
+  });
+
+  it('gainers sorted most-positive first, losers most-negative first', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 40, b: 50, c: 10, d: 20 }), [
+      party('a', 'A', 30), // +10
+      party('b', 'B', 30), // +20
+      party('c', 'UNALIGNED', 40), // -30
+      party('d', 'A', 35), // -15
+    ]);
+    expect(res.biggestGainers!.map((m) => m.partyId)).toEqual(['b', 'a']);
+    expect(res.biggestLosers!.map((m) => m.partyId)).toEqual(['c', 'd']);
+  });
+
+  it('a zero delta is neither a gainer nor a loser', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 30, b: 90 }), [
+      party('a', 'A', 30), // delta 0
+      party('b', 'B', 80), // +10
+    ]);
+    expect(res.biggestGainers!.map((m) => m.partyId)).toEqual(['b']);
+    expect(res.biggestLosers).toEqual([]);
+  });
+
+  it('no baselines anywhere ⇒ both mover lists empty', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD, { a: 60, b: 60 }), [
+      party('a', 'A', null),
+      party('b', 'B', null),
+    ]);
+    expect(res.biggestGainers).toEqual([]);
+    expect(res.biggestLosers).toEqual([]);
+  });
+
+  it('movers are null (withheld) below the threshold', () => {
+    const res = computeForecast(nPicks(REVEAL_THRESHOLD - 1, { a: 60, b: 60 }), [
+      party('a', 'A', 30),
+      party('b', 'B', 30),
+    ]);
+    expect(res.biggestGainers).toBeNull();
+    expect(res.biggestLosers).toBeNull();
   });
 });
 

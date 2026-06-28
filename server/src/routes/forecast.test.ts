@@ -165,6 +165,67 @@ describe('GET /forecast — canonical public page', () => {
     expect(res.text).not.toContain('ישראלים כבר ניבאו');
   });
 
+  it('ABOVE threshold: renders the biggest movers vs baseline (gainers and losers)', async () => {
+    mocked.election.findFirst.mockResolvedValue({
+      id: 'e1',
+      nameHe: 'בחירות 2026',
+      blocALabel: 'הימין',
+      blocBLabel: 'השמאל',
+    });
+    mocked.party.findMany.mockResolvedValue([
+      { id: 'a', nameHe: 'הליכוד', bloc: 'A', baselineMandates: 32 }, // 40 - 32 = +8
+      { id: 'b', nameHe: 'יש עתיד', bloc: 'B', baselineMandates: 24 }, // 20 - 24 = -4
+      { id: 'c', nameHe: 'רעם', bloc: 'UNALIGNED', baselineMandates: null }, // no delta
+    ]);
+    const entries: Entry[] = [
+      { partyId: 'a', mandates: 40 },
+      { partyId: 'b', mandates: 20 },
+      { partyId: 'c', mandates: 60 },
+    ];
+    mocked.pick.findMany.mockResolvedValue(
+      Array.from({ length: REVEAL_THRESHOLD }, () => submitted(entries)),
+    );
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.status).toBe(200);
+    // The movers section header and both columns render.
+    expect(res.text).toContain('התנועה הגדולה ביותר');
+    expect(res.text).toContain('העולים');
+    expect(res.text).toContain('היורדים');
+    // Gainer הליכוד with +8, loser יש עתיד with −4.
+    expect(res.text).toMatch(/mover-up[\s\S]*?הליכוד/);
+    expect(res.text).toContain('+8');
+    expect(res.text).toMatch(/mover-down[\s\S]*?יש עתיד/);
+    expect(res.text).toContain('−4');
+  });
+
+  it('ABOVE threshold but NO baselines: the movers section is omitted', async () => {
+    mocked.election.findFirst.mockResolvedValue({
+      id: 'e1',
+      nameHe: 'בחירות 2026',
+      blocALabel: 'הימין',
+      blocBLabel: 'השמאל',
+    });
+    mocked.party.findMany.mockResolvedValue([
+      { id: 'a', nameHe: 'הליכוד', bloc: 'A', baselineMandates: null },
+      { id: 'b', nameHe: 'יש עתיד', bloc: 'B', baselineMandates: null },
+    ]);
+    mocked.pick.findMany.mockResolvedValue(
+      Array.from({ length: REVEAL_THRESHOLD }, () =>
+        submitted([
+          { partyId: 'a', mandates: 65 },
+          { partyId: 'b', mandates: 55 },
+        ]),
+      ),
+    );
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.status).toBe(200);
+    // Mandate bar renders, but with no baselines the movers section is withheld.
+    expect(res.text).toContain('תחזית המנדטים');
+    expect(res.text).not.toContain('התנועה הגדולה ביותר');
+  });
+
   it('PRE-lock: the CTA routes to the active-election pick screen', async () => {
     // lockAt in the far future ⇒ picks still open ⇒ deep-link into the pick screen.
     mocked.election.findFirst.mockResolvedValue({

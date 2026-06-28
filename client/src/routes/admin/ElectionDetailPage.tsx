@@ -259,6 +259,7 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
                 <TableHead>שם</TableHead>
                 <TableHead>גוש</TableHead>
                 <TableHead>סדר</TableHead>
+                <TableHead>בסיס</TableHead>
                 <TableHead className="text-end">פעולות</TableHead>
               </TableRow>
             </TableHeader>
@@ -284,6 +285,7 @@ function PartiesManager({ election }: { election: ElectionDetail }) {
                   <TableCell className="font-medium">{party.nameHe}</TableCell>
                   <TableCell>{blocLabel(party.bloc, election)}</TableCell>
                   <TableCell>{party.displayOrder}</TableCell>
+                  <TableCell>{party.baselineMandates ?? '—'}</TableCell>
                   <TableCell className="text-end">
                     <div className="flex justify-start gap-1">
                       <Button
