@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { HttpError } from '../middleware/error';
 import { requireAuthMw, AuthedRequest } from '../middleware/auth';
 import { rankEntries, type LeaderboardEntry, type LeaderboardResponse } from '../lib/leaderboard';
+import { getActiveElection } from '../lib/election';
 
 const router = Router();
 
@@ -12,14 +13,6 @@ router.use(requireAuthMw);
 function getDbUser(req: AuthedRequest) {
   if (!req.dbUser) throw new HttpError(500, 'Internal server error');
   return req.dbUser;
-}
-
-/**
- * The single active election (most recently created), mirroring groups.ts.
- * The app runs one election cycle at a time.
- */
-async function getActiveElection() {
-  return prisma.election.findFirst({ orderBy: { createdAt: 'desc' } });
 }
 
 const DEFAULT_LIMIT = 50;

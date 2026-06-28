@@ -6,6 +6,7 @@ import { validate } from '../middleware/validate';
 import { requireAuthMw, AuthedRequest } from '../middleware/auth';
 import { createGroupSchema, updateGroupSchema } from '../lib/validation/group';
 import { isRevealed } from '../lib/time';
+import { getActiveElection } from '../lib/election';
 
 const router = Router();
 
@@ -15,15 +16,6 @@ router.use(requireAuthMw);
 function getDbUser(req: AuthedRequest) {
   if (!req.dbUser) throw new HttpError(500, 'Internal server error');
   return req.dbUser;
-}
-
-/**
- * The single election whose timeline drives group privacy. We treat the most
- * recently created election as the active one (the app runs one election cycle
- * at a time); privacy is then gated strictly on that election's revealAt.
- */
-async function getActiveElection() {
-  return prisma.election.findFirst({ orderBy: { createdAt: 'desc' } });
 }
 
 // POST /api/groups — create a group
