@@ -26,6 +26,13 @@ vi.mock('../db', () => ({
   },
 }));
 
+// Stub the OG image renderer so route tests don't run satori on every recompute
+// (it has its own dedicated test). The snapshot pipeline still stores whatever this
+// returns; the og.png route is exercised separately against a stored-bytes row.
+vi.mock('../lib/og-image', () => ({
+  renderForecastOgPngFromForecast: vi.fn(async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47])),
+}));
+
 import { createApp } from '../app';
 import { prisma } from '../db';
 import { env } from '../env';
@@ -396,5 +403,109 @@ describe('GET /forecast/:electionId — stable per-election archive URL', () => 
     expect(res.status).toBe(404);
     expect(res.headers['content-type']).toMatch(/text\/html/);
     expect(res.text).toContain('אין בחירות פעילות');
+  });
+});
+
+describe('OG meta + dynamic image', () => {
+  // Above-threshold stored snapshot so the verdict (og:title) is the bloc call.
+  function freshSnapshotRow() {
+    return {
+      id: 's1',
+      electionId: 'e1',
+      participantCount: REVEAL_THRESHOLD,
+      computedAt: new Date(),
+      ogImage: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]),
+      data: {
+        forecast: {
+          participantCount: REVEAL_THRESHOLD,
+          numbersVisible: true,
+          parties: [
+            { partyId: 'a', bloc: 'A', avgMandates: 65, delta: null },
+            { partyId: 'b', bloc: 'B', avgMandates: 55, delta: null },
+          ],
+          blocTally: { sumA: 65, sumB: 55 },
+          blocCall: 'A',
+          largestPartyIds: ['a'],
+          biggestGainers: [],
+          biggestLosers: [],
+        },
+        partyNames: { a: 'הליכוד', b: 'יש עתיד' },
+      },
+    };
+  }
+
+  it('/forecast HTML carries og:image (absolute /forecast/og.png) and og:title = bloc verdict', async () => {
+    mocked.election.findFirst.mockResolvedValue({
+      id: 'e1',
+      nameHe: 'בחירות 2026',
+      blocALabel: 'הימין',
+      blocBLabel: 'השמאל',
+    });
+    mocked.forecastSnapshot.findUnique.mockResolvedValue(freshSnapshotRow());
+
+    const res = await request(createApp()).get('/forecast');
+    expect(res.status).toBe(200);
+    // og:title is the bloc verdict.
+    expect(res.text).toContain('<meta property="og:title" content="הימין מקבל רוב"');
+    expect(res.text).toContain('<meta name="twitter:card" content="summary_large_image"');
+    // og:image points to an ABSOLUTE /forecast/og.png URL.
+    expect(res.text).toMatch(
+      /<meta property="og:image" content="https?:\/\/[^"]+\/forecast\/og\.png"/,
+    );
+    expect(res.text).toContain('<meta property="og:image:width" content="1200"');
+  });
+
+  it('/forecast/:id HTML points og:image at the per-election og.png', async () => {
+    mocked.election.findUnique.mockResolvedValue({
+      id: 'old',
+      nameHe: 'בחירות 2022',
+      blocALabel: 'הימין',
+      blocBLabel: 'השמאל',
+    });
+    mocked.forecastSnapshot.findUnique.mockResolvedValue({
+      ...freshSnapshotRow(),
+      electionId: 'old',
+    });
+
+    const res = await request(createApp()).get('/forecast/old');
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(
+      /<meta property="og:image" content="https?:\/\/[^"]+\/forecast\/old\/og\.png"/,
+    );
+  });
+
+  it('GET /forecast/og.png returns non-empty image/png bytes (from the stored snapshot)', async () => {
+    mocked.election.findFirst.mockResolvedValue({ id: 'e1', nameHe: 'בחירות 2026' });
+    mocked.forecastSnapshot.findUnique.mockResolvedValue(freshSnapshotRow());
+
+    const res = await request(createApp()).get('/forecast/og.png');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
+    expect(res.headers['cache-control']).toMatch(/max-age/);
+    // Body is the stored PNG bytes (supertest gives a Buffer for binary responses).
+    expect(res.body.length).toBeGreaterThan(0);
+    expect(Array.from(res.body.subarray(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    // It must NOT recompute when the bytes are already stored.
+    expect(mocked.pick.findMany).not.toHaveBeenCalled();
+  });
+
+  it('GET /forecast/:id/og.png returns the per-election stored PNG bytes', async () => {
+    mocked.election.findUnique.mockResolvedValue({ id: 'old' });
+    mocked.forecastSnapshot.findUnique.mockResolvedValue({
+      ...freshSnapshotRow(),
+      electionId: 'old',
+    });
+
+    const res = await request(createApp()).get('/forecast/old/og.png');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  it('GET /forecast/og.png with no active election: 404', async () => {
+    mocked.election.findFirst.mockResolvedValue(null);
+
+    const res = await request(createApp()).get('/forecast/og.png');
+    expect(res.status).toBe(404);
   });
 });

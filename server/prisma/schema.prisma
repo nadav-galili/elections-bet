@@ -143,6 +143,11 @@ model ForecastSnapshot {
   // Participation count promoted to a column so it can be read/queried cheaply
   // without deserializing the blob (mirrors Score.total being its own column).
   participantCount Int      @default(0)
+  // Materialized OG card PNG bytes, generated at snapshot-refresh time and served
+  // by GET /forecast/og.png. Stored INLINE (no object storage) per the URLs-only
+  // rule. Nullable: an older snapshot row may predate image generation, and a
+  // recompute failure must not block serving the forecast HTML.
+  ogImage          Bytes?
   computedAt       DateTime @default(now())
 
   election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)

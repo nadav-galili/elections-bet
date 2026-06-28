@@ -18,7 +18,8 @@
 // sleeping.
 
 import { prisma } from '../db';
-import { computeForecast, type Forecast } from './forecast';
+import { blocVerdictText, computeForecast, type Forecast } from './forecast';
+import { renderForecastOgPngFromForecast } from './og-image';
 
 /**
  * Freshness window for a materialized snapshot, in milliseconds. A read that finds
@@ -36,6 +37,22 @@ export interface ForecastSnapshotResult {
   partyNames: Map<string, string>;
   /** When this forecast was actually computed (the materialized row's timestamp). */
   computedAt: Date;
+}
+
+/**
+ * The hero/verdict headline shared by the /forecast HTML hero, the og:title meta and
+ * the OG image. Above threshold ⇒ the bloc verdict; below ⇒ the participation framing.
+ * PURE so the page, the meta and the image always read identically.
+ */
+export function forecastVerdict(
+  forecast: Forecast,
+  blocALabel: string | null,
+  blocBLabel: string | null,
+): string {
+  if (forecast.numbersVisible && forecast.blocCall) {
+    return blocVerdictText(forecast.blocCall, blocALabel, blocBLabel);
+  }
+  return `${forecast.participantCount.toLocaleString('he-IL')} ישראלים כבר ניבאו`;
 }
 
 /**
@@ -58,7 +75,7 @@ const inFlight = new Map<string, Promise<ForecastSnapshotResult>>();
  * computed result. The DB reads live here; computeForecast stays pure.
  */
 async function recomputeAndPersist(electionId: string, now: Date): Promise<ForecastSnapshotResult> {
-  const [picks, parties] = await Promise.all([
+  const [picks, parties, election] = await Promise.all([
     prisma.pick.findMany({
       where: { electionId },
       select: { submittedAt: true, entries: { select: { partyId: true, mandates: true } } },
@@ -67,6 +84,10 @@ async function recomputeAndPersist(electionId: string, now: Date): Promise<Forec
       where: { electionId },
       select: { id: true, nameHe: true, bloc: true, baselineMandates: true },
     }),
+    prisma.election.findUnique({
+      where: { id: electionId },
+      select: { nameHe: true, blocALabel: true, blocBLabel: true },
+    }),
   ]);
 
   const forecast = computeForecast(picks, parties);
@@ -74,24 +95,50 @@ async function recomputeAndPersist(electionId: string, now: Date): Promise<Forec
   for (const p of parties) partyNamesObj[p.id] = p.nameHe;
   const data: SnapshotData = { forecast, partyNames: partyNamesObj };
 
+  // Materialize the OG card PNG alongside the snapshot so the unfurl image is ready
+  // without per-request rendering. If generation fails for any reason, we still
+  // persist the forecast (ogImage stays null) — the share image is best-effort and
+  // must never block serving the page.
+  const partyNames = new Map(Object.entries(partyNamesObj));
+  let ogImage: Uint8Array<ArrayBuffer> | null = null;
+  try {
+    const png = await renderForecastOgPngFromForecast({
+      nameHe: election?.nameHe ?? 'תחזית בחירות',
+      verdict: forecastVerdict(
+        forecast,
+        election?.blocALabel ?? null,
+        election?.blocBLabel ?? null,
+      ),
+      forecast,
+      partyNames,
+      blocALabel: election?.blocALabel ?? null,
+      blocBLabel: election?.blocBLabel ?? null,
+    });
+    ogImage = png;
+  } catch {
+    ogImage = null;
+  }
+
   await prisma.forecastSnapshot.upsert({
     where: { electionId },
     create: {
       electionId,
       data: data as unknown as object,
       participantCount: forecast.participantCount,
+      ogImage,
       computedAt: now,
     },
     update: {
       data: data as unknown as object,
       participantCount: forecast.participantCount,
+      ogImage,
       computedAt: now,
     },
   });
 
   return {
     forecast,
-    partyNames: new Map(Object.entries(partyNamesObj)),
+    partyNames,
     computedAt: now,
   };
 }
@@ -150,6 +197,35 @@ export async function getForecastSnapshot(
   // We're the first stale reader: kick off the recompute and await it (so we return
   // fresh numbers). Others arriving while it runs hit the branch above.
   return runSingleFlight(electionId, now);
+}
+
+/**
+ * Get the materialized OG card PNG bytes for an election, or null if none can be
+ * produced. Reads the stored `ogImage` column first; if it's missing (an older row,
+ * or a row whose generation previously failed) it forces a fresh recompute — which
+ * regenerates and persists the PNG — then re-reads. Returns null only if even the
+ * recompute couldn't produce an image (e.g. satori unavailable), so the route can
+ * 404 cleanly rather than 500.
+ *
+ * @param now injectable clock (defaults to real now), forwarded to the recompute.
+ */
+export async function getForecastOgImage(
+  electionId: string,
+  now: Date = new Date(),
+): Promise<Buffer | null> {
+  const row = await prisma.forecastSnapshot.findUnique({
+    where: { electionId },
+    select: { ogImage: true },
+  });
+  if (row?.ogImage) return Buffer.from(row.ogImage);
+
+  // No stored image: materialize one (this also persists it), then re-read the bytes.
+  await runSingleFlight(electionId, now);
+  const fresh = await prisma.forecastSnapshot.findUnique({
+    where: { electionId },
+    select: { ogImage: true },
+  });
+  return fresh?.ogImage ? Buffer.from(fresh.ogImage) : null;
 }
 
 /**

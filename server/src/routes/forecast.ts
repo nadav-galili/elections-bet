@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { prisma } from '../db';
 import { env } from '../env';
 import { getActiveElection } from '../lib/election';
-import { type Forecast } from '../lib/forecast';
-import { getForecastSnapshot } from '../lib/forecast-snapshot';
+import { blocVerdictText, type Forecast } from '../lib/forecast';
+import { forecastVerdict, getForecastOgImage, getForecastSnapshot } from '../lib/forecast-snapshot';
 import { isLocked } from '../lib/time';
 
 // PUBLIC, server-rendered forecast page. Mounted OUTSIDE clerkMiddleware (top-level
@@ -34,17 +34,26 @@ function renderEmptyPage(): string {
   );
 }
 
-/** Hebrew label for a derived bloc call, using the election's own bloc labels. */
-function blocVerdictText(
-  call: 'A' | 'B' | 'HUNG',
-  blocALabel: string | null,
-  blocBLabel: string | null,
-): string {
-  const aName = blocALabel?.trim() || 'גוש א׳';
-  const bName = blocBLabel?.trim() || 'גוש ב׳';
-  if (call === 'A') return `${aName} מקבל רוב`;
-  if (call === 'B') return `${bName} מקבל רוב`;
-  return 'אף גוש לא מקבל רוב';
+/**
+ * Absolute base URL of THIS server (the API origin serving /forecast/og.png), derived
+ * from the request so og:image is a fully-qualified URL behind any host/proxy. Honors
+ * X-Forwarded-Proto/Host when present (the deployed app sits behind a proxy).
+ */
+function serverBaseUrl(req: Request): string {
+  const proto = (req.headers['x-forwarded-proto'] as string)?.split(',')[0]?.trim() || req.protocol;
+  const host = (req.headers['x-forwarded-host'] as string) || req.get('host') || '';
+  return `${proto}://${host}`;
+}
+
+/** Open Graph / Twitter card meta for the unfurl preview. */
+interface OgMeta {
+  /** og:title — the bloc verdict (or count framing below threshold). */
+  title: string;
+  /** Absolute og:image URL pointing at GET /forecast/og.png. */
+  image: string;
+  /** Canonical absolute page URL. */
+  url: string;
+  description: string;
 }
 
 /**
@@ -105,6 +114,7 @@ function renderForecastPage(
   blocALabel: string | null,
   blocBLabel: string | null,
   lockAt: Date | null,
+  og: OgMeta,
 ): string {
   // Lock-aware CTA: a stranger who signs up should land where they can still act.
   // PRE-lock → the active-election pick screen (highest-intent path). POST-lock →
@@ -158,17 +168,34 @@ function renderForecastPage(
         <a class="cta" href="${esc(ctaUrl)}">${esc(ctaLabel)}</a>
       </main>
     `,
+    og,
   );
 }
 
+/** Render the Open Graph + Twitter card meta tags for the unfurl preview. */
+function ogMetaTags(og: OgMeta): string {
+  return `
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="${esc(og.title)}" />
+    <meta property="og:description" content="${esc(og.description)}" />
+    <meta property="og:image" content="${esc(og.image)}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="${esc(og.url)}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${esc(og.title)}" />
+    <meta name="twitter:description" content="${esc(og.description)}" />
+    <meta name="twitter:image" content="${esc(og.image)}" />`;
+}
+
 /** Wrap content in the shared HTML shell (RTL Hebrew, DESIGN.md tokens). */
-function page(title: string, body: string): string {
+function page(title: string, body: string, og?: OgMeta): string {
   return `<!doctype html>
 <html lang="he" dir="rtl">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${esc(title)}</title>
+    <title>${esc(title)}</title>${og ? ogMetaTags(og) : ''}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -346,8 +373,39 @@ function page(title: string, body: string): string {
 </html>`;
 }
 
+/**
+ * Serve the materialized OG PNG bytes for an election (image/png + cache headers).
+ * Used by both the canonical and per-election og.png endpoints. 404s cleanly (never
+ * 500s) when no image can be produced, so a failed render doesn't break unfurls hard.
+ */
+async function sendOgImage(electionId: string, res: import('express').Response): Promise<void> {
+  const png = await getForecastOgImage(electionId);
+  if (!png) {
+    res.status(404).type('text/plain').send('not found');
+    return;
+  }
+  res
+    .status(200)
+    .type('image/png')
+    // Cache for an hour at the edge; well under the snapshot freshness window so a
+    // refreshed card propagates within a cycle. Unfurlers also cache aggressively.
+    .set('Cache-Control', 'public, max-age=3600')
+    .send(png);
+}
+
+// GET /forecast/og.png — the canonical OG image (active election). Registered BEFORE
+// the /:electionId catch-all so "og.png" isn't swallowed as an election id.
+router.get('/og.png', async (_req, res) => {
+  const election = await getActiveElection();
+  if (!election) {
+    res.status(404).type('text/plain').send('not found');
+    return;
+  }
+  await sendOgImage(election.id, res);
+});
+
 // GET /forecast — canonical link, resolves to the active election.
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
   const election = await getActiveElection();
   if (!election) {
     res.status(200).type('html').send(renderEmptyPage());
@@ -356,6 +414,13 @@ router.get('/', async (_req, res) => {
   // Served from the materialized snapshot (lazy refresh past the freshness window,
   // single-flight on concurrent post-expiry reads) — NOT recomputed per request.
   const { forecast, partyNames } = await getForecastSnapshot(election.id);
+  const base = serverBaseUrl(req);
+  const og: OgMeta = {
+    title: forecastVerdict(forecast, election.blocALabel, election.blocBLabel),
+    image: `${base}/forecast/og.png`,
+    url: `${base}/forecast`,
+    description: 'זה משחק, לא סקר. ניחוש מנדטים בין חברים — בלי כסף, רק נקודות וכבוד.',
+  };
   res
     .status(200)
     .type('html')
@@ -368,8 +433,23 @@ router.get('/', async (_req, res) => {
         election.blocALabel,
         election.blocBLabel,
         election.lockAt,
+        og,
       ),
     );
+});
+
+// GET /forecast/:electionId/og.png — per-election OG image (stable archive share).
+router.get('/:electionId/og.png', async (req, res) => {
+  const electionId = String(req.params.electionId);
+  const exists = await prisma.election.findUnique({
+    where: { id: electionId },
+    select: { id: true },
+  });
+  if (!exists) {
+    res.status(404).type('text/plain').send('not found');
+    return;
+  }
+  await sendOgImage(electionId, res);
 });
 
 // GET /forecast/:electionId — stable per-election archive URL so shared links persist.
@@ -384,6 +464,13 @@ router.get('/:electionId', async (req, res) => {
     return;
   }
   const { forecast, partyNames } = await getForecastSnapshot(election.id);
+  const base = serverBaseUrl(req);
+  const og: OgMeta = {
+    title: forecastVerdict(forecast, election.blocALabel, election.blocBLabel),
+    image: `${base}/forecast/${encodeURIComponent(election.id)}/og.png`,
+    url: `${base}/forecast/${encodeURIComponent(election.id)}`,
+    description: 'זה משחק, לא סקר. ניחוש מנדטים בין חברים — בלי כסף, רק נקודות וכבוד.',
+  };
   res
     .status(200)
     .type('html')
@@ -396,6 +483,7 @@ router.get('/:electionId', async (req, res) => {
         election.blocALabel,
         election.blocBLabel,
         election.lockAt,
+        og,
       ),
     );
 });

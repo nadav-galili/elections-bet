@@ -7,8 +7,16 @@ vi.mock('../db', () => ({
   prisma: {
     pick: { findMany: vi.fn() },
     party: { findMany: vi.fn() },
+    election: { findUnique: vi.fn() },
     forecastSnapshot: { findUnique: vi.fn(), upsert: vi.fn() },
   },
+}));
+
+// Stub the OG image renderer: these are pure cache-logic unit tests, so we don't run
+// satori here (the renderer has its own dedicated test). We return fixed PNG-ish bytes
+// and assert the snapshot pipeline stores them.
+vi.mock('./og-image', () => ({
+  renderForecastOgPngFromForecast: vi.fn(async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47])),
 }));
 
 import { prisma } from '../db';
@@ -18,6 +26,7 @@ import { REVEAL_THRESHOLD } from './forecast';
 const mocked = prisma as unknown as {
   pick: { findMany: ReturnType<typeof vi.fn> };
   party: { findMany: ReturnType<typeof vi.fn> };
+  election: { findUnique: ReturnType<typeof vi.fn> };
   forecastSnapshot: Record<'findUnique' | 'upsert', ReturnType<typeof vi.fn>>;
 };
 
@@ -57,6 +66,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocked.party.findMany.mockResolvedValue([]);
   mocked.pick.findMany.mockResolvedValue([]);
+  mocked.election.findUnique.mockResolvedValue({
+    nameHe: 'בחירות 2026',
+    blocALabel: 'הימין',
+    blocBLabel: 'השמאל',
+  });
   mocked.forecastSnapshot.upsert.mockResolvedValue({});
 });
 
@@ -203,5 +217,18 @@ describe('getForecastSnapshot — materialized cache', () => {
     const upsertArg = mocked.forecastSnapshot.upsert.mock.calls[0][0];
     expect(upsertArg.create.data.forecast.numbersVisible).toBe(true);
     expect(upsertArg.create.data.partyNames).toEqual({ a: 'הליכוד', b: 'יש עתיד' });
+  });
+
+  it('generates and persists the OG image bytes alongside the snapshot', async () => {
+    mocked.forecastSnapshot.findUnique.mockResolvedValue(null);
+    mocked.pick.findMany.mockResolvedValue([submitted(), submitted()]);
+
+    await getForecastSnapshot('e1', new Date());
+
+    const upsertArg = mocked.forecastSnapshot.upsert.mock.calls[0][0];
+    // The materialized PNG bytes are stored on the row (from the stubbed renderer).
+    expect(upsertArg.create.ogImage).toBeInstanceOf(Uint8Array);
+    expect(upsertArg.create.ogImage.length).toBeGreaterThan(0);
+    expect(upsertArg.update.ogImage).toBeInstanceOf(Uint8Array);
   });
 });

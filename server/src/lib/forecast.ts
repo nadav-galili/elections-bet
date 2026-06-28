@@ -133,6 +133,23 @@ export interface Forecast {
 /** How many movers to surface in each direction. */
 export const MAX_MOVERS = 3;
 
+/**
+ * The Hebrew bloc-verdict headline for a derived bloc call, using the election's own
+ * bloc labels (falling back to generic ones). PURE — shared by the /forecast HTML
+ * hero, the og:title meta, and the OG image so all three read identically.
+ */
+export function blocVerdictText(
+  call: BlocCall,
+  blocALabel: string | null,
+  blocBLabel: string | null,
+): string {
+  const aName = blocALabel?.trim() || 'גוש א׳';
+  const bName = blocBLabel?.trim() || 'גוש ב׳';
+  if (call === 'A') return `${aName} מקבל רוב`;
+  if (call === 'B') return `${bName} מקבל רוב`;
+  return 'אף גוש לא מקבל רוב';
+}
+
 /** Round to one decimal place (e.g. 12.34 ⇒ 12.3). */
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
