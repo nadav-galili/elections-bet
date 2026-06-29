@@ -1,19 +1,6 @@
 import { useMemo } from 'react';
-import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
-import { cn } from '@/lib/utils';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import type { LeaderboardRow } from '@/lib/leaderboard/types';
 
@@ -57,6 +44,7 @@ export function LeaderboardTable({
       columnHelper.accessor('rank', {
         header: 'דירוג',
         cell: (info) => <span className="font-bold tabular-nums">{info.getValue()}</span>,
+        meta: { align: 'start' },
       }),
       columnHelper.display({
         id: 'player',
@@ -73,55 +61,28 @@ export function LeaderboardTable({
             </div>
           );
         },
+        meta: { align: 'start' },
       }),
       columnHelper.accessor('total', {
         header: 'נקודות',
         cell: (info) => <span className="font-semibold tabular-nums">{info.getValue()}</span>,
+        meta: { align: 'start' },
       }),
     ],
     [currentUserId],
   );
 
-  const table = useReactTable({
-    data: rows,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   return (
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id} className="text-start">
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((row) => {
-          const isYou = row.original.userId === currentUserId;
-          return (
-            <TableRow
-              key={row.id}
-              data-you={isYou || undefined}
-              className={cn(isYou && 'bg-candy-mint/15 hover:bg-candy-mint/15')}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="text-start">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+    <DataTable
+      columns={columns as ColumnDef<LeaderboardRow, unknown>[]}
+      data={rows}
+      rowClassName={(row) =>
+        row.original.userId === currentUserId
+          ? 'bg-candy-mint/15 hover:bg-candy-mint/15'
+          : undefined
+      }
+      rowProps={(row) => ({ 'data-you': row.original.userId === currentUserId || undefined })}
+    />
   );
 }
 
